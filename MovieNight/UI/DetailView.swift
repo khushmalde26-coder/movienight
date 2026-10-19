@@ -6,8 +6,13 @@ struct DetailView: View {
     @Environment(AppModel.self) private var appModel
     @Environment(LibraryStore.self) private var store
     @Environment(\.modelContext) private var modelContext
-    @AppStorage(PlaybackPreferences.startFromBeginningKey) private var startFromBeginning = false
     @Query(sort: \MediaItem.addedAt, order: .reverse) private var siblings: [MediaItem]
+    @Query private var moments: [SavedMoment]
+
+    init(itemKey: String) {
+        self.itemKey = itemKey
+        _moments = Query(filter: #Predicate<SavedMoment> { $0.itemKey == itemKey }, sort: \.seconds)
+    }
 
     var body: some View {
         if let item = appModel.item(forKey: itemKey, in: modelContext) {
@@ -35,18 +40,24 @@ struct DetailView: View {
                             .foregroundStyle(.orange)
                     }
 
-                    HStack(spacing: 12) {
-                        if item.resumePosition(startFromBeginning: startFromBeginning) != nil {
-                            Button("Start Over") {
-                                store.setWatched(item, false)
-                                appModel.play(item)
-                            }
-                        }
-                        Button(item.isFinished ? "Mark as Unwatched" : "Mark as Watched") {
-                            store.setWatched(item, !item.isFinished)
-                        }
+                    Button(item.isFinished ? "Mark as Unwatched" : "Mark as Watched") {
+                        store.setWatched(item, !item.isFinished)
                     }
                     .buttonStyle(.bordered)
+
+                    if !moments.isEmpty {
+                        TimestampList(title: "Saved Moments", rows: moments.map { ("Saved \($0.createdAt.formatted(date: .abbreviated, time: .shortened))", $0.seconds) }) {
+                            appModel.play(item, from: $0)
+                        } onDelete: { index in
+                            modelContext.delete(moments[index])
+                            try? modelContext.save()
+                        }
+                    }
+                    if !item.chapters.isEmpty {
+                        TimestampList(title: "Chapters", rows: item.chapters.map { ($0.title, $0.start) }) {
+                            appModel.play(item, from: $0)
+                        }
+                    }
 
                     ViewThatFits(in: .horizontal) {
                         HStack(alignment: .top, spacing: 64) { detailsGrid(item); technicalGrid(item) }
@@ -64,7 +75,7 @@ struct DetailView: View {
         }
         .scrollIndicators(.hidden)
         .ignoresSafeArea(edges: .top)
-        .background(Theme.background)
+        .background { WallpaperBackground() }
     }
 }
 
@@ -125,5 +136,43 @@ private struct InfoRow: View {
                 Text(value).textSelection(.enabled)
             }
         }
+    }
+}
+
+/// Tappable list of times on the detail page: saved moments or chapters.
+private struct TimestampList: View {
+    let title: String
+    let rows: [(label: String, seconds: Double)]
+    let onPlay: (Double) -> Void
+    var onDelete: ((Int) -> Void)?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title).font(.headline)
+            ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
+                HStack(spacing: 12) {
+                    Button { onPlay(row.seconds) } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "play.circle.fill").foregroundStyle(.tint)
+                            Text(row.label).lineLimit(1)
+                            Spacer(minLength: 12)
+                            Text(Formatters.clock(row.seconds))
+                                .monospacedDigit()
+                                .foregroundStyle(Theme.secondaryText)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    if let onDelete {
+                        Button { onDelete(index) } label: { Image(systemName: "trash") }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(Theme.secondaryText)
+                            .accessibilityLabel("Delete")
+                    }
+                }
+                .font(.callout)
+            }
+        }
+        .frame(maxWidth: 520, alignment: .leading)
     }
 }

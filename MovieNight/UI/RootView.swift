@@ -5,10 +5,11 @@ import UniformTypeIdentifiers
 struct RootView: View {
     @Environment(AppModel.self) private var appModel
     @Query private var sources: [LibrarySource]
+    @AppStorage(AccentChoice.key) private var accent = AccentChoice.silver
 
     var body: some View {
         ZStack {
-            Theme.background.ignoresSafeArea()
+            WallpaperBackground()
 
             if sources.isEmpty {
                 WelcomeView()
@@ -28,11 +29,13 @@ struct RootView: View {
             }
         }
         .animation(.easeInOut(duration: 0.25), value: appModel.nowPlayingKey)
+        .tint(accent.color)
     }
 }
 
 struct WelcomeView: View {
     @Environment(LibraryStore.self) private var store
+    @AppStorage(AccentChoice.key) private var accent = AccentChoice.silver
     @State private var importing: LibraryImport?
 
     var body: some View {
@@ -57,8 +60,7 @@ struct WelcomeView: View {
                         .padding(.vertical, 12)
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(Theme.accent)
-                .foregroundStyle(.black)
+                .foregroundStyle(accent.onAccent)
                 Button {
                     importing = .videos
                 } label: {
@@ -68,7 +70,6 @@ struct WelcomeView: View {
                         .padding(.vertical, 12)
                 }
                 .buttonStyle(.bordered)
-                .tint(Theme.accent)
             }
         }
         .padding(40)

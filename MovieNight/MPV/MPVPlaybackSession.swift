@@ -14,13 +14,14 @@ final class MPVPlaybackSession {
 
     var state: MPVPlayerState { player.state }
 
-    init?(item: MediaItem, url: URL, store: LibraryStore) {
+    /// `startAt` nil or 0 plays from the beginning.
+    init?(item: MediaItem, url: URL, store: LibraryStore, startAt: Double?) {
         guard let player = MPVPlayer(layer: renderView.metalLayer) else { return nil }
         self.player = player
         self.item = item
         self.store = store
 
-        let startAt = item.resumePosition() ?? 0
+        let startAt = startAt ?? 0
         lastSaved = startAt
         player.state.onPositionChange = { [weak self] seconds in
             guard let self, abs(seconds - self.lastSaved) >= 5 else { return }
@@ -31,8 +32,14 @@ final class MPVPlaybackSession {
             guard let self else { return }
             self.store.saveProgress(self.item, seconds: self.item.duration ?? self.state.duration)
         }
+        player.apply(PlaybackPreferences.videoQuality)
+        player.setAudioFilter(PlaybackPreferences.sound.mpvAudioFilter)
         player.load(url, startAt: startAt)
     }
+
+    var currentTime: Double { player.currentPosition }
+    func seek(to seconds: Double) { player.seek(to: seconds) }
+    func updateSound(_ settings: SoundSettings) { player.setAudioFilter(settings.mpvAudioFilter) }
 
     /// Call when the player closes.
     func end() {

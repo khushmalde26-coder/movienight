@@ -7,8 +7,12 @@ import SwiftData
 @Observable
 final class AppModel {
     var nowPlayingKey: String?
+    /// Where the current play starts when it isn't the saved position: 0 for Start Over,
+    /// a bookmark or chapter time. nil resumes as usual.
+    private(set) var startOverride: Double?
 
-    func play(_ item: MediaItem) {
+    func play(_ item: MediaItem, from seconds: Double? = nil) {
+        startOverride = seconds
         nowPlayingKey = item.key
     }
 

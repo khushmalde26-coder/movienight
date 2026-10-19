@@ -129,6 +129,12 @@ enum MPVProbe {
         if let channels = mpv.int("audio-params/channel-count"), channels > 0 {
             metadata.audioChannels = channels
         }
+        if let count = mpv.int("chapter-list/count"), count > 0 {
+            metadata.chapters = (0..<count).compactMap { index in
+                guard let start = mpv.double("chapter-list/\(index)/time") else { return nil }
+                return Chapter(title: mpv.string("chapter-list/\(index)/title") ?? "Chapter \(index + 1)", start: start)
+            }
+        }
         if metadata.recordedAt == nil, let created = mpv.string("metadata/by-key/creation_time") {
             metadata.recordedAt = parseDate(created)
         }

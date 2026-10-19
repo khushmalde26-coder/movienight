@@ -5,7 +5,7 @@ struct HomeView: View {
     @Environment(LibraryStore.self) private var store
     @Query(sort: \MediaItem.addedAt, order: .reverse) private var items: [MediaItem]
     @State private var showingSources = false
-    @AppStorage(PlaybackPreferences.startFromBeginningKey) private var startFromBeginning = false
+    @State private var showingSettings = false
 
     var body: some View {
         // Recomputed on change; cheap for libraries in the low thousands.
@@ -38,7 +38,7 @@ struct HomeView: View {
             }
             .scrollIndicators(.hidden)
             .ignoresSafeArea(edges: .top)
-            .background(Theme.background)
+            .background { WallpaperBackground() }
             .toolbar {
                 ToolbarItem(placement: .navigation) {
                     // Like a streaming app's logo: takes you back to the top of Home.
@@ -68,19 +68,19 @@ struct HomeView: View {
                     } label: {
                         Label("Library", systemImage: "folder")
                     }
-                    Menu {
-                        Section("Playback") {
-                            Toggle("Always Watch from Beginning", isOn: $startFromBeginning)
-                        }
+                    Button {
+                        showingSettings = true
                     } label: {
                         Label("Settings", systemImage: "gearshape")
                     }
-                    .menuIndicator(.hidden)
                 }
             }
         }
         .sheet(isPresented: $showingSources) {
             SourcesView()
+        }
+        .sheet(isPresented: $showingSettings) {
+            SettingsView()
         }
     }
 }
@@ -93,6 +93,9 @@ struct HeroBanner: View {
     let item: MediaItem
     /// Off on the detail page, where "More Info" would push the same page again.
     var showsMoreInfo = true
+    @Environment(AppModel.self) private var appModel
+    @Environment(LibraryStore.self) private var store
+    @AppStorage(PlaybackPreferences.startFromBeginningKey) private var startFromBeginning = false
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
@@ -100,15 +103,13 @@ struct HeroBanner: View {
                 .frame(height: Theme.heroHeight)
                 .frame(maxWidth: .infinity)
                 .clipped()
+                // Fade the artwork itself out, so it melts into whatever wallpaper is behind it.
+                .mask {
+                    LinearGradient(stops: [.init(color: .black, location: 0.45), .init(color: .clear, location: 1)],
+                                   startPoint: .top, endPoint: .bottom)
+                }
                 .overlay {
-                    LinearGradient(
-                        stops: [
-                            .init(color: .clear, location: 0.35),
-                            .init(color: Theme.background.opacity(0.7), location: 0.75),
-                            .init(color: Theme.background, location: 1),
-                        ],
-                        startPoint: .top, endPoint: .bottom
-                    )
+                    LinearGradient(colors: [.clear, .black.opacity(0.35)], startPoint: .center, endPoint: .bottom)
                 }
 
             VStack(alignment: .leading, spacing: 12) {
@@ -116,7 +117,7 @@ struct HeroBanner: View {
                     Text(item.collection.uppercased())
                         .font(.caption.weight(.semibold))
                         .tracking(2)
-                        .foregroundStyle(Theme.accent)
+                        .foregroundStyle(.tint)
                 }
                 Text(item.displayTitle)
                     .font(.system(size: 40, weight: .bold, design: .rounded))
@@ -124,6 +125,18 @@ struct HeroBanner: View {
                 MetadataLine(item: item)
                 HStack(spacing: 12) {
                     PlayButton(item: item)
+                    if item.resumePosition(startFromBeginning: startFromBeginning) != nil {
+                        // Smart resume: continuing is the big button, starting over is right beside it.
+                        Button {
+                            appModel.play(item, from: 0)
+                        } label: {
+                            Label("Start Over", systemImage: "arrow.counterclockwise")
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 8)
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(!store.isAvailable(item))
+                    }
                     if showsMoreInfo {
                         NavigationLink(value: item.key) {
                             Label("More Info", systemImage: "info.circle")
@@ -167,8 +180,8 @@ struct QualityChip: View {
             .font(compact ? .system(size: 9, weight: .bold) : .caption2.weight(.bold))
             .padding(.horizontal, compact ? 4 : 6)
             .padding(.vertical, compact ? 1 : 2)
-            .foregroundStyle(Theme.accent.opacity(0.9))
-            .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(Theme.accent.opacity(0.5), lineWidth: 1))
+            .foregroundStyle(.tint.opacity(0.9))
+            .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(.tint.opacity(0.5), lineWidth: 1))
     }
 }
 
@@ -179,11 +192,11 @@ struct PlayButton: View {
     @AppStorage(PlaybackPreferences.startFromBeginningKey) private var startFromBeginning = false
 
     var body: some View {
-        let resuming = item.resumePosition(startFromBeginning: startFromBeginning) != nil
+        let resume = item.resumePosition(startFromBeginning: startFromBeginning)
         Button {
             appModel.play(item)
         } label: {
-            Label(resuming ? "Resume" : "Play", systemImage: "play.fill")
+            Label(resume.map { "Resume from \(Formatters.clock($0))" } ?? "Play", systemImage: "play.fill")
                 .font(.headline)
                 .padding(.horizontal, 18)
                 .padding(.vertical, 8)

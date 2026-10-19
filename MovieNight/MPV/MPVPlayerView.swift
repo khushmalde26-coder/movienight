@@ -123,7 +123,6 @@ struct MPVPlayerView: View {
                     showControls(true)
                 }
             )
-            .tint(Theme.accent)
             HStack {
                 Text(Formatters.clock(shown))
                 Spacer()

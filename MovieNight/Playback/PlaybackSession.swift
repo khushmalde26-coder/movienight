@@ -10,14 +10,19 @@ final class PlaybackSession {
     private let item: MediaItem
     private let store: LibraryStore
     private var timeObserver: Any?
+    @ObservationIgnored private let sound: SoundProcessor
 
-    init(item: MediaItem, url: URL, store: LibraryStore) {
+    /// `startAt` nil or 0 plays from the beginning.
+    init(item: MediaItem, url: URL, store: LibraryStore, startAt: Double?) {
         self.item = item
         self.store = store
-        self.player = AVPlayer(url: url)
+        let asset = AVURLAsset(url: url)
+        let playerItem = AVPlayerItem(asset: asset)
+        self.player = AVPlayer(playerItem: playerItem)
+        self.sound = SoundProcessor(settings: PlaybackPreferences.sound)
 
-        if let resume = item.resumePosition() {
-            player.seek(to: CMTime(seconds: resume, preferredTimescale: 600))
+        if let startAt, startAt > 0 {
+            player.seek(to: CMTime(seconds: startAt, preferredTimescale: 600))
         }
         timeObserver = player.addPeriodicTimeObserver(
             forInterval: CMTime(seconds: 5, preferredTimescale: 1),
@@ -28,6 +33,25 @@ final class PlaybackSession {
             }
         }
         player.play()
+
+        // Dialogue boost, night mode and balance run in an audio tap on the file's sound track.
+        let processor = sound
+        Task {
+            if let mix = await processor.audioMix(for: asset) { playerItem.audioMix = mix }
+        }
+    }
+
+    var currentTime: Double {
+        let seconds = player.currentTime().seconds
+        return seconds.isFinite ? seconds : 0
+    }
+
+    func seek(to seconds: Double) {
+        player.seek(to: CMTime(seconds: seconds, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
+    }
+
+    func updateSound(_ settings: SoundSettings) {
+        sound.update(settings)
     }
 
     private func record(_ seconds: Double) {

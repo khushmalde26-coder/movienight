@@ -13,11 +13,12 @@ struct VideoMetadata: Sendable {
     var videoCodec: String?
     var isHDR = false
     var audioChannels: Int?
+    var chapters: [Chapter] = []
 }
 
 enum MetadataReader {
     /// Bump when this reader learns to extract something new, so existing items get re-read.
-    static let version = 2
+    static let version = 3
 
     static func read(_ url: URL) async -> VideoMetadata {
         let asset = AVURLAsset(url: url)
@@ -47,10 +48,24 @@ enum MetadataReader {
                let description = CMAudioFormatDescriptionGetStreamBasicDescription(format) {
                 result.audioChannels = Int(description.pointee.mChannelsPerFrame)
             }
+            result.chapters = await chapters(of: asset)
             return result
         } catch {
             return VideoMetadata(isPlayable: false)
         }
+    }
+
+    /// Chapter tracks in MP4/MOV/M4V, titled in the user's language when the file has several.
+    static func chapters(of asset: AVAsset) async -> [Chapter] {
+        guard let groups = try? await asset.loadChapterMetadataGroups(bestMatchingPreferredLanguages: Locale.preferredLanguages)
+        else { return [] }
+        var chapters: [Chapter] = []
+        for (index, group) in groups.enumerated() {
+            let titleItem = AVMetadataItem.metadataItems(from: group.items, filteredByIdentifier: .commonIdentifierTitle).first
+            let title = (try? await titleItem?.load(.stringValue)) ?? nil
+            chapters.append(Chapter(title: title ?? "Chapter \(index + 1)", start: group.timeRange.start.seconds))
+        }
+        return chapters.filter { $0.start.isFinite }
     }
 
     static func codecName(_ code: FourCharCode) -> String {

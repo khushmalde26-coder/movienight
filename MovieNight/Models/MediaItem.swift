@@ -29,6 +29,10 @@ final class MediaItem {
     var videoCodec: String?
     var isHDR: Bool = false
     var audioChannels: Int?
+    /// JSON-encoded [Chapter]; nil when the file has none.
+    var chaptersData: Data?
+    /// false for an iCloud file that isn't downloaded. Updated on every scan.
+    var isLocal: Bool = true
     /// MetadataReader.version that last read this file; lower means re-read on next scan.
     var metadataVersion: Int = 0
 
@@ -65,6 +69,11 @@ final class MediaItem {
 
     var needsMetadata: Bool { metadataVersion < MetadataReader.version }
 
+    var chapters: [Chapter] {
+        get { chaptersData.flatMap { try? JSONDecoder().decode([Chapter].self, from: $0) } ?? [] }
+        set { chaptersData = newValue.isEmpty ? nil : try? JSONEncoder().encode(newValue) }
+    }
+
     /// Where playback starts: the saved position, or nil to start from the beginning.
     func resumePosition(startFromBeginning: Bool = PlaybackPreferences.startFromBeginning) -> Double? {
         guard !startFromBeginning, !isFinished, progressSeconds > 5 else { return nil }
@@ -81,6 +90,10 @@ final class MediaItem {
     var progressFraction: Double {
         guard let duration, duration > 0 else { return 0 }
         return min(progressSeconds / duration, 1)
+    }
+
+    var healthInput: HealthInput {
+        HealthInput(key: key, fileName: fileName, fileSize: fileSize, duration: duration, isPlayable: isPlayable, isLocal: isLocal)
     }
 
     var snapshot: ShelfInput {

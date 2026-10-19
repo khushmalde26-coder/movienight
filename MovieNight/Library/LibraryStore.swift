@@ -164,6 +164,7 @@ final class LibraryStore {
                 context.insert(item)
                 restoreHistory(of: item)
             }
+            item.isLocal = file.isLocal
             if let thumbnail = item.thumbnailFile, !ThumbnailService.exists(thumbnail) {
                 item.thumbnailFile = nil
                 item.metadataVersion = 0
@@ -227,6 +228,7 @@ final class LibraryStore {
         item.videoCodec = metadata.videoCodec
         item.isHDR = metadata.isHDR
         item.audioChannels = metadata.audioChannels
+        item.chapters = metadata.chapters
         item.metadataVersion = MetadataReader.version
         if let thumbnail { item.thumbnailFile = thumbnail }
     }
@@ -291,6 +293,7 @@ final class LibraryStore {
                 try await Task.sleep(for: .milliseconds(500))
             }
         }
+        item.isLocal = true
         if item.needsMetadata {
             await enrich(item, root: root)
             try? context.save()
@@ -316,6 +319,23 @@ final class LibraryStore {
         item.progressSeconds = 0
         if !watched { item.lastPlayedAt = nil }
         try? context.save()
+    }
+
+    // MARK: Cleanup suggestions
+
+    /// Forgets what was read about a file and reads it again, for files that couldn't be opened.
+    func recheck(_ item: MediaItem) async {
+        guard let source = item.source, let root = activate(source) else { return }
+        item.metadataVersion = 0
+        item.isPlayable = nil
+        await enrich(item, root: root)
+        try? context.save()
+    }
+
+    /// Asks iCloud for the file; the next scan picks up its artwork and length.
+    func download(_ item: MediaItem) {
+        guard let url = fileURL(for: item) else { return }
+        try? FileManager.default.startDownloadingUbiquitousItem(at: url)
     }
 
     // MARK: Watch history across moves

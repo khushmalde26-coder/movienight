@@ -108,7 +108,7 @@ struct ProgressBar: View {
         GeometryReader { proxy in
             ZStack(alignment: .leading) {
                 Capsule().fill(.white.opacity(0.3))
-                Capsule().fill(Theme.accent).frame(width: proxy.size.width * fraction)
+                Capsule().fill(.tint).frame(width: proxy.size.width * fraction)
             }
         }
         .frame(height: 4)

@@ -6,6 +6,7 @@ struct SourcesView: View {
     @Environment(LibraryStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \LibrarySource.addedAt) private var sources: [LibrarySource]
+    @Query private var items: [MediaItem]
     @State private var importing: LibraryImport?
 
     var body: some View {
@@ -13,6 +14,18 @@ struct SourcesView: View {
         let videos = sources.filter(\.isFile)
         NavigationStack {
             List {
+                Section {
+                    NavigationLink {
+                        LibraryHealthView()
+                    } label: {
+                        let count = LibraryHealth.check(items.map(\.healthInput)).count
+                        LabeledContent {
+                            Text(count == 0 ? "All good" : "\(count)")
+                        } label: {
+                            Label("Suggestions", systemImage: "sparkles")
+                        }
+                    }
+                }
                 if !folders.isEmpty {
                     Section("Folders") { rows(folders) }
                 }
@@ -65,7 +78,7 @@ private struct SourceRow: View {
         let scanning = store.scanningSources.contains(source.id)
         HStack(spacing: 12) {
             Image(systemName: offline ? "externaldrive.badge.xmark" : source.isFile ? "film.fill" : "folder.fill")
-                .foregroundStyle(offline ? .secondary : Theme.accent)
+                .foregroundStyle(offline ? AnyShapeStyle(.secondary) : AnyShapeStyle(.tint))
                 .font(.title2)
             VStack(alignment: .leading, spacing: 2) {
                 Text(source.name).font(.headline)

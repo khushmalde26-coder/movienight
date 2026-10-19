@@ -74,7 +74,7 @@ final class MPVPlayer: @unchecked Sendable {
     // MARK: Commands
 
     func load(_ url: URL, startAt seconds: Double) {
-        mpv.setProperty("start", seconds > 5 ? "\(Int(seconds))" : "0")
+        mpv.setProperty("start", seconds > 0 ? String(format: "%.2f", seconds) : "0")
         mpv.command(["loadfile", url.path])
     }
 
@@ -84,6 +84,13 @@ final class MPVPlayer: @unchecked Sendable {
     func seek(by seconds: Double) { mpv.command(["seek", String(seconds), "relative"]) }
     func selectAudio(_ id: Int) { mpv.setProperty("aid", String(id)) }
     func selectSubtitle(_ id: Int?) { mpv.setProperty("sid", id.map(String.init) ?? "no") }
+
+    /// An mpv `af` chain from SoundSettings.mpvAudioFilter; empty clears it. Works while playing.
+    func setAudioFilter(_ filter: String) { mpv.setProperty("af", filter) }
+
+    func apply(_ quality: VideoQualityMode) {
+        for (name, value) in quality.mpvProperties { mpv.setProperty(name, value) }
+    }
 
     var currentPosition: Double { mpv.double("time-pos") ?? 0 }
 
