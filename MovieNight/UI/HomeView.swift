@@ -5,6 +5,7 @@ struct HomeView: View {
     @Environment(LibraryStore.self) private var store
     @Environment(AppModel.self) private var appModel
     @Query(sort: \MediaItem.addedAt, order: .reverse) private var items: [MediaItem]
+    @State private var showingSources = false
 
     var body: some View {
         // Recomputed on change; cheap for libraries in the low thousands.
@@ -72,8 +73,17 @@ struct HomeView: View {
                     }
                     .keyboardShortcut("r", modifiers: .command)
                     .disabled(store.isScanning)
+                    Button {
+                        showingSources = true
+                    } label: {
+                        Label("Folders and Videos", systemImage: "folder")
+                    }
+                    .keyboardShortcut("l", modifiers: .command)
                 }
             }
+        }
+        .sheet(isPresented: $showingSources) {
+            SourcesView()
         }
     }
 }

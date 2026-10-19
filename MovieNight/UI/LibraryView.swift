@@ -8,6 +8,7 @@ struct LibraryView: View {
     @AppStorage("librarySortAscending") private var ascending = false
     @AppStorage("libraryFilter") private var filter = LibraryFilter.all
     @State private var search = ""
+    @State private var showingSources = false
 
     var body: some View {
         let lookup = Dictionary(uniqueKeysWithValues: items.map { ($0.key, $0) })
@@ -29,7 +30,15 @@ struct LibraryView: View {
         }
         .navigationTitle("Library")
         .searchable(text: $search, prompt: "Titles, folders, years")
+        .sheet(isPresented: $showingSources) { SourcesView() }
         .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    showingSources = true
+                } label: {
+                    Label("Folders and Videos", systemImage: "folder")
+                }
+            }
             ToolbarItem(placement: .primaryAction) {
                 Menu {
                     Picker("Sort By", selection: $sort) {
