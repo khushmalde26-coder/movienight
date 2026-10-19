@@ -44,4 +44,5 @@ targets:
       - target: MovieNight
     settings:
       base:
+        GENERATE_INFOPLIST_FILE: YES
         "TEST_HOST[sdk=macosx*]": "$(BUILT_PRODUCTS_DIR)/MovieNight.app/Contents/MacOS/MovieNight"
