@@ -1,42 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Runs on TVs (no touchscreen) and phones/tablets alike. -->
+    <!-- One app for phones, tablets and Android TV: no touchscreen needed, TV launcher supported. -->
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
     <uses-feature android:name="android.software.leanback" android:required="false" />
 
-    <!-- Lock screen / notification controls while a video plays with the screen off or in the background. -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <!-- Only for "This Device's Videos"; folders and files picked by the user need no permission. -->
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
 
     <application
-        android:name=".MovieNightApplication"
-        android:allowBackup="true"
-        android:banner="@drawable/tv_banner"
-        android:icon="@mipmap/ic_launcher"
+        android:name=".MovieNightApp"
         android:label="@string/app_name"
-        android:supportsRtl="true"
-        android:theme="@style/Theme.MovieNight">
-
+        android:icon="@mipmap/ic_launcher"
+        android:banner="@drawable/tv_banner"
+        android:theme="@style/Theme.MovieNight"
+        android:supportsRtl="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden"
-            android:windowSoftInputMode="adjustResize">
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|touchscreen|density"
+            android:launchMode="singleTask">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
-                <!-- Shows the app on the Android TV / Google TV home screen. -->
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
         </activity>
-
-        <activity
-            android:name=".player.PlayerActivity"
-            android:exported="false"
-            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation"
-            android:launchMode="singleTask"
-            android:supportsPictureInPicture="true"
-            android:theme="@style/Theme.MovieNight.Player" />
     </application>
 </manifest>
