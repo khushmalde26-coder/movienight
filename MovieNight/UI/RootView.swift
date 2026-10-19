@@ -37,11 +37,11 @@ struct WelcomeView: View {
 
     var body: some View {
         VStack(spacing: 20) {
-            Image(systemName: "popcorn.fill")
-                .font(.system(size: 64))
-                .foregroundStyle(Theme.accent)
-            Text("Movie Night")
-                .font(.system(size: 44, weight: .bold, design: .rounded))
+            Image("LogoStacked")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 260)
+                .accessibilityLabel("Movie Night")
             Text("Point it at the folders where your videos live: this device, iCloud Drive, or an external drive. Everything stays where it is.")
                 .font(.title3)
                 .foregroundStyle(Theme.secondaryText)

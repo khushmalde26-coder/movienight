@@ -37,6 +37,13 @@ struct HomeView: View {
         .ignoresSafeArea(edges: .top)
         .background(Theme.background)
         .toolbar {
+            ToolbarItem(placement: .navigation) {
+                Image("LogoHorizontal")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(height: 22)
+                    .accessibilityLabel("Movie Night")
+            }
             ToolbarItemGroup(placement: .primaryAction) {
                 if store.isScanning {
                     ProgressView().controlSize(.small)

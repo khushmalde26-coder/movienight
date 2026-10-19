@@ -3,7 +3,7 @@
 A Netflix / Apple TV+ style library and player for videos you own, home videos first.
 macOS 14+ and iPadOS/iOS 17+, SwiftUI + SwiftData + AVKit.
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for decisions, weak spots and the roadmap.
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for decisions, weak spots and the roadmap. Logo source files are in [docs/brand](docs/brand).
 
 ## Run it
 

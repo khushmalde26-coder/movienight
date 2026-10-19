@@ -1,9 +1,10 @@
 import SwiftUI
 
 enum Theme {
-    static let background = Color(red: 0.05, green: 0.05, blue: 0.07)
-    static let accent = Color(red: 0.98, green: 0.78, blue: 0.35)   // warm "movie night" amber
-    static let secondaryText = Color.white.opacity(0.6)
+    // Taken from the logo: ink #0B0B0B, light #F5F5F7, play-button grey #8E8E93.
+    static let background = Color(red: 0.043, green: 0.043, blue: 0.043)
+    static let accent = Color(red: 0.961, green: 0.961, blue: 0.969)
+    static let secondaryText = Color(red: 0.557, green: 0.557, blue: 0.576)
 
     #if os(macOS)
     static let cardWidth: CGFloat = 280
