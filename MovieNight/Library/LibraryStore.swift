@@ -15,9 +15,11 @@ final class LibraryStore {
     private(set) var offlineSources: Set<UUID> = []
     private(set) var scanningSources: Set<UUID> = []
     var lastError: String?
+    let titleChek: TitleChekService
 
     init(context: ModelContext) {
         self.context = context
+        self.titleChek = TitleChekService(context: context)
     }
 
     var isScanning: Bool { !scanningSources.isEmpty }
@@ -188,6 +190,9 @@ final class LibraryStore {
         if source.content == .auto, !toEnrich.isEmpty, !source.isDeleted {
             classify(source)
             try? context.save()
+        }
+        if source.titleChek, !source.isDeleted {
+            Task { await titleChek.run() }
         }
     }
 

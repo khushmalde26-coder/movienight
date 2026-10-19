@@ -86,7 +86,13 @@ struct DetailView: View {
 
 extension DetailView {
     private func detailsGrid(_ item: MediaItem) -> some View {
-        InfoSection(title: "Details") {
+        let info = item.kind == .homeVideo ? nil : item.info
+        let list = { (names: [String]?) in names.flatMap { $0.isEmpty ? nil : $0.prefix(4).joined(separator: ", ") } }
+        return InfoSection(title: "Details") {
+            InfoRow(label: "Genre", value: list(info?.genres))
+            InfoRow(label: item.kind == .film ? "Director" : "Created by", value: list(info?.directors))
+            InfoRow(label: "Starring", value: list(info?.cast))
+            InfoRow(label: "Collection", value: item.kind == .film ? info?.collectionName : nil)
             InfoRow(label: "Length", value: Formatters.duration(item.duration))
             InfoRow(label: "Recorded", value: item.recordedAt?.formatted(date: .complete, time: .shortened))
             InfoRow(label: "Folder", value: item.collection.isEmpty ? nil : item.collection)

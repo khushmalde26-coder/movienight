@@ -21,6 +21,11 @@ struct BrowseEntry: Sendable, Hashable {
     var franchise: String?
     var isUHD = false
     var lastPlayedAt: Date?
+    // From TitleChek, films only.
+    var genres: [String] = []
+    var directors: [String] = []
+    var tmdbCollection: String?
+    var year: Int?
 }
 
 enum LibrarySort: String, CaseIterable, Identifiable, Sendable {

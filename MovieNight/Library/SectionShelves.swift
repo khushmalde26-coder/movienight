@@ -77,6 +77,7 @@ enum FilmShelves {
         for name in franchises.keys.sorted(by: { $0.localizedStandardCompare($1) == .orderedAscending }) {
             shelves.append(Shelf(kind: .franchise(name), title: name, itemKeys: ordered(franchises[name]!).map(\.key)))
         }
+        shelves += matchedShelves(films, franchises: franchises)
         let uhd = films.filter(\.isUHD)
         if uhd.count >= 2 && uhd.count < films.count {
             shelves.append(Shelf(kind: .uhd, title: "In 4K", itemKeys: ordered(uhd).map(\.key)))
@@ -86,6 +87,56 @@ enum FilmShelves {
             shelves.append(Shelf(kind: .epics, title: "Epics", itemKeys: epics.map(\.key)))
         }
         return shelves
+    }
+
+    static let genreMinimum = 3
+    static let maximumGenreRows = 6
+    static let decadeMinimum = 3
+    static let directorMinimum = 2
+
+    /// Rows that need TitleChek data (decades also use years from file names): TMDB's collections
+    /// that no folder already groups, the biggest genres, decades and directors with a few films each.
+    static func matchedShelves(_ films: [BrowseEntry], franchises: [String: [BrowseEntry]]) -> [Shelf] {
+        var shelves: [Shelf] = []
+        let folderSets = Set(franchises.values.map { Set($0.map(\.key)) })
+        let folderNames = Set(franchises.keys.map(TitleMatcher.normalize))
+        let collections = Dictionary(grouping: films.filter { $0.tmdbCollection != nil }) { $0.tmdbCollection! }
+        for name in collections.keys.sorted(by: { $0.localizedStandardCompare($1) == .orderedAscending }) {
+            let members = collections[name]!
+            let shortName = name.replacingOccurrences(of: #"\s+Collection$"#, with: "", options: .regularExpression)
+            guard members.count >= 2, !folderSets.contains(Set(members.map(\.key))),
+                  !folderNames.contains(TitleMatcher.normalize(shortName)) else { continue }
+            shelves.append(Shelf(kind: .tmdbCollection(name), title: name, itemKeys: ordered(members).map(\.key)))
+        }
+
+        var byGenre: [String: [BrowseEntry]] = [:]
+        for film in films { for genre in film.genres { byGenre[genre, default: []].append(film) } }
+        let genres = byGenre.filter { $0.value.count >= genreMinimum && $0.value.count < films.count }
+            .sorted { ($0.value.count, $1.key) > ($1.value.count, $0.key) }
+            .prefix(maximumGenreRows)
+        for (genre, members) in genres {
+            shelves.append(Shelf(kind: .genre(genre), title: genre, itemKeys: members.sorted(by: newestFirst).map(\.key)))
+        }
+
+        let decades = Dictionary(grouping: films.filter { $0.year != nil }) { $0.year! / 10 * 10 }
+            .filter { $0.value.count >= decadeMinimum }
+        if decades.count >= 2 {
+            for decade in decades.keys.sorted(by: >) {
+                shelves.append(Shelf(kind: .decade(decade), title: "The \(decade)s", itemKeys: ordered(decades[decade]!).map(\.key)))
+            }
+        }
+
+        var byDirector: [String: [BrowseEntry]] = [:]
+        for film in films { for director in film.directors { byDirector[director, default: []].append(film) } }
+        for director in byDirector.keys.sorted(by: { $0.localizedStandardCompare($1) == .orderedAscending })
+        where byDirector[director]!.count >= directorMinimum {
+            shelves.append(Shelf(kind: .director(director), title: "Directed by \(director)", itemKeys: ordered(byDirector[director]!).map(\.key)))
+        }
+        return shelves
+    }
+
+    private static func newestFirst(_ a: BrowseEntry, _ b: BrowseEntry) -> Bool {
+        (a.year ?? 0, a.key) > (b.year ?? 0, b.key)
     }
 }
 

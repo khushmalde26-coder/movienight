@@ -195,10 +195,10 @@ private struct LibraryImporter: ViewModifier {
                 if let new { lastKind = new }
             }
             .sheet(isPresented: Binding(get: { !pendingFolders.isEmpty }, set: { if !$0 { pendingFolders = [] } })) {
-                FolderSetupView(folders: pendingFolders) { content in
+                FolderSetupView(folders: pendingFolders) { content, titleChek in
                     let folders = pendingFolders
                     pendingFolders = []
-                    Task { for url in folders { await store.addFolder(url, content: content) } }
+                    Task { for url in folders { await store.addFolder(url, content: content, titleChek: titleChek) } }
                 }
             }
     }
@@ -207,9 +207,10 @@ private struct LibraryImporter: ViewModifier {
 /// "What's in this folder?", asked when a folder is added, so films, TV and home videos each go to the right place.
 struct FolderSetupView: View {
     let folders: [URL]
-    let onAdd: (FolderContent) -> Void
+    let onAdd: (FolderContent, Bool) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var content = FolderContent.auto
+    @State private var titleChek = false
 
     var body: some View {
         NavigationStack {
@@ -235,12 +236,27 @@ struct FolderSetupView: View {
                 } footer: {
                     Text("You can change this later in Folders and Videos.")
                 }
+                if content != .homeVideos {
+                    Section {
+                        Toggle(isOn: $titleChek) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("TitleChek").font(.headline)
+                                Text("Match films and shows on TMDB for proper titles, artwork, genres, cast and episode names. Only titles and years are sent. Home videos never are.")
+                                    .font(.callout).foregroundStyle(.secondary)
+                            }
+                        }
+                    } footer: {
+                        if titleChek && !TokenStore.hasToken {
+                            Text("Add your TMDB token in Settings > TitleChek to start matching.")
+                        }
+                    }
+                }
             }
             .formStyle(.grouped)
             .navigationTitle("Add Folder")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) { Button("Add") { onAdd(content) } }
+                ToolbarItem(placement: .confirmationAction) { Button("Add") { onAdd(content, titleChek && content != .homeVideos) } }
             }
         }
         .frame(minWidth: 460, minHeight: 420)

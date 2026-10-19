@@ -113,7 +113,7 @@ private struct ShowCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Group {
-                if let cover { ArtworkView(item: cover, cornerRadius: 12) } else { RoundedRectangle(cornerRadius: 12).fill(.white.opacity(0.1)) }
+                if let cover { ArtworkView(item: cover, cornerRadius: 12, showArtwork: true) } else { RoundedRectangle(cornerRadius: 12).fill(.white.opacity(0.1)) }
             }
             .aspectRatio(16 / 9, contentMode: .fit)
             Text(show.name).font(.headline).lineLimit(1)
@@ -152,7 +152,7 @@ struct ShowDetailView: View {
             VStack(alignment: .leading, spacing: 24) {
                 if let banner = next ?? episodes.first {
                     ZStack(alignment: .bottomLeading) {
-                        ArtworkView(item: banner, cornerRadius: 0, maxPixelSize: nil)
+                        ArtworkView(item: banner, cornerRadius: 0, maxPixelSize: nil, showArtwork: true)
                             .frame(height: Theme.heroHeight * 0.8).frame(maxWidth: .infinity).clipped()
                             .mask { LinearGradient(stops: [.init(color: .black, location: 0.4), .init(color: .clear, location: 1)], startPoint: .top, endPoint: .bottom) }
                         VStack(alignment: .leading, spacing: 12) {
@@ -228,7 +228,7 @@ private struct EpisodeRow: View {
                     }
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 8) {
-                        Text("\(item.episodeNumber ?? 0). \(item.episodeTitle ?? "Episode \(item.episodeNumber ?? 0)")")
+                        Text("\(item.episodeNumber ?? 0). \(item.resolvedEpisodeTitle ?? "Episode \(item.episodeNumber ?? 0)")")
                             .font(.headline).lineLimit(2)
                         if isNext { QualityChip(text: "UP NEXT") }
                     }
@@ -247,7 +247,7 @@ private struct EpisodeRow: View {
             }
             NavigationLink(value: item.key) { Label("Details", systemImage: "info.circle") }
         }
-        .accessibilityLabel("Episode \(item.episodeNumber ?? 0), \(item.episodeTitle ?? ""), \(Formatters.duration(item.duration) ?? "")\(item.isFinished ? ", watched" : "")")
+        .accessibilityLabel("Episode \(item.episodeNumber ?? 0), \(item.resolvedEpisodeTitle ?? ""), \(Formatters.duration(item.duration) ?? "")\(item.isFinished ? ", watched" : "")")
     }
 }
 

@@ -43,6 +43,7 @@ struct SettingsView: View {
     private var form: some View {
         Form {
             if embedded { library }
+            TitleChekSettings()
             playback
             sound
             appearance

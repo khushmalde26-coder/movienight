@@ -203,8 +203,8 @@ extension PosterCard {
     fileprivate var subtitle: String? {
         switch item.kind {
         case .episode: return item.episodeLabel
-        case .film: return [item.releaseYear.map(String.init), item.franchise].compactMap { $0 }.first
-        case .extra: return item.showName
+        case .film: return [item.year.map(String.init), item.franchise].compactMap { $0 }.first
+        case .extra: return item.showTitle
         case .homeVideo: break
         }
         let stem = (item.fileName as NSString).deletingPathExtension
@@ -250,7 +250,11 @@ struct ArtworkView: View {
     var cornerRadius: CGFloat
     /// Decode size limit; nil for the full-size hero.
     var maxPixelSize: Int? = 640
+    /// A show's card or banner: its TMDB backdrop rather than this episode's frame.
+    var showArtwork = false
     @State private var image: CGImage?
+
+    private var file: String? { showArtwork ? item.showArtworkFile : item.artworkFile }
 
     var body: some View {
         Rectangle()
@@ -279,8 +283,8 @@ struct ArtworkView: View {
                 }
             }
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .task(id: item.thumbnailFile) {
-                guard let name = item.thumbnailFile else { image = nil; return }
+            .task(id: file) {
+                guard let name = file else { image = nil; return }
                 let maxPixelSize = maxPixelSize
                 image = await Task.detached(priority: .utility) { ThumbnailService.load(name, maxPixelSize: maxPixelSize) }.value
             }

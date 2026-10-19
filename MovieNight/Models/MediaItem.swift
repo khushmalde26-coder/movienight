@@ -51,6 +51,8 @@ final class MediaItem {
     var isFinished: Bool = false
 
     var source: LibrarySource?
+    /// What TitleChek found on TMDB, shared with the other files of the same film or show.
+    var info: TitleInfo?
 
     init(key: String, relativePath: String, collection: String, fileName: String, fileSize: Int64, fileCreatedAt: Date?) {
         self.key = key
@@ -75,15 +77,35 @@ final class MediaItem {
     /// What to sort and group by in time: the shooting date for home videos, the release year otherwise.
     var sortDate: Date? {
         if kind == .homeVideo { return bestDate }
-        return releaseYear.flatMap { DateComponents(calendar: Calendar(identifier: .gregorian), year: $0, month: 1, day: 1).date }
+        return year.flatMap { DateComponents(calendar: Calendar(identifier: .gregorian), year: $0, month: 1, day: 1).date }
     }
 
     /// "S4 E9" or "S4 E9 · The Wedding".
     var episodeLabel: String? {
         guard kind == .episode, let episodeNumber else { return nil }
         let number = "S\(season ?? 1) E\(episodeNumber)"
-        return episodeTitle.map { "\(number) · \($0)" } ?? number
+        return resolvedEpisodeTitle.map { "\(number) · \($0)" } ?? number
     }
+
+    /// Release year: TMDB's when TitleChek matched it, else the one in the file name.
+    var year: Int? { (kind == .film ? info?.year : nil) ?? releaseYear }
+
+    /// The show's name as TMDB has it, else the folder's.
+    var showTitle: String? { showName.map { info?.title ?? $0 } }
+
+    /// From the file name, else from TMDB's episode list.
+    var resolvedEpisodeTitle: String? {
+        episodeTitle ?? episodeNumber.flatMap { info?.episodeName(season: season ?? 1, episode: $0) }
+    }
+
+    /// Artwork for cards: a matched film's TMDB backdrop, else the frame grabbed from the file.
+    var artworkFile: String? {
+        if kind == .film, let backdrop = info?.backdropFile { return backdrop }
+        return thumbnailFile
+    }
+
+    /// For a show's card and banner: the show's TMDB backdrop, else this file's frame.
+    var showArtworkFile: String? { info?.backdropFile ?? thumbnailFile }
 
     var engine: PlaybackEngine? {
         get { engineRaw.flatMap(PlaybackEngine.init(rawValue:)) }
@@ -122,8 +144,9 @@ final class MediaItem {
     var displayTitle: String {
         switch kind {
         case .homeVideo: DisplayTitle.make(fileName: fileName, recordedAt: bestDate)
-        case .episode: [showName, episodeNumber.map { "S\(season ?? 1) E\($0)" }].compactMap { $0 }.joined(separator: " ")
-        case .film, .extra: cleanTitle ?? DisplayTitle.clean((fileName as NSString).deletingPathExtension)
+        case .episode: [showTitle, episodeNumber.map { "S\(season ?? 1) E\($0)" }].compactMap { $0 }.joined(separator: " ")
+        case .film: info?.title ?? cleanTitle ?? DisplayTitle.clean((fileName as NSString).deletingPathExtension)
+        case .extra: cleanTitle ?? DisplayTitle.clean((fileName as NSString).deletingPathExtension)
         }
     }
 
@@ -136,8 +159,10 @@ final class MediaItem {
         BrowseEntry(key: key, title: displayTitle, fileName: fileName, collection: collection, sourceID: source?.id,
                     sourceName: source?.name ?? "", isFileSource: source?.isFile ?? false, date: sortDate,
                     addedAt: addedAt, duration: duration, progressFraction: progressFraction, isFinished: isFinished,
-                    kind: kind, show: showName, season: season, episode: episodeNumber, franchise: franchise,
-                    isUHD: quality?.resolutionBadge == "4K", lastPlayedAt: lastPlayedAt)
+                    kind: kind, show: showTitle, season: season, episode: episodeNumber, franchise: franchise,
+                    isUHD: quality?.resolutionBadge == "4K", lastPlayedAt: lastPlayedAt,
+                    genres: kind == .film ? info?.genres ?? [] : [], directors: kind == .film ? info?.directors ?? [] : [],
+                    tmdbCollection: kind == .film ? info?.collectionName : nil, year: year)
     }
 
     var healthInput: HealthInput {

@@ -38,7 +38,7 @@ struct ScrubThumbnailerTests {
 @MainActor
 struct ContinueWatchingTests {
     @Test func removingStartsTheVideoOverNextTime() throws {
-        let container = try ModelContainer(for: LibrarySource.self, MediaItem.self, WatchRecord.self, SavedMoment.self,
+        let container = try ModelContainer(for: LibrarySource.self, MediaItem.self, WatchRecord.self, SavedMoment.self, TitleInfo.self,
                                            configurations: ModelConfiguration(isStoredInMemoryOnly: true))
         let store = LibraryStore(context: container.mainContext)
         let item = MediaItem(key: "k", relativePath: "a.mp4", collection: "", fileName: "a.mp4", fileSize: 1, fileCreatedAt: nil)

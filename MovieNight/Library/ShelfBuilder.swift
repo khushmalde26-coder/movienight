@@ -28,6 +28,11 @@ struct Shelf: Identifiable, Sendable, Equatable {
         case uhd
         case epics
         case franchise(String)
+        // Films rows from TitleChek.
+        case tmdbCollection(String)
+        case genre(String)
+        case decade(Int)
+        case director(String)
     }
 
     var kind: Kind

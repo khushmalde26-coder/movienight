@@ -115,7 +115,7 @@ struct AppleEngineTests {
         try await Self.makeVideo(at: video)
         try "1\n00:00:01,000 --> 00:00:02,000\nHello\n".write(to: dir.appending(path: "Clip.en.srt"), atomically: true, encoding: .utf8)
 
-        let container = try ModelContainer(for: LibrarySource.self, MediaItem.self, WatchRecord.self, SavedMoment.self,
+        let container = try ModelContainer(for: LibrarySource.self, MediaItem.self, WatchRecord.self, SavedMoment.self, TitleInfo.self,
                                            configurations: ModelConfiguration(isStoredInMemoryOnly: true))
         let store = LibraryStore(context: container.mainContext)
         let item = MediaItem(key: "test/Clip.mp4", relativePath: "Clip.mp4", collection: "", fileName: "Clip.mp4", fileSize: 1, fileCreatedAt: nil)

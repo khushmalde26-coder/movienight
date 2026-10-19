@@ -145,6 +145,13 @@ struct HeroBanner: View {
                     .font(.system(size: titleSize, weight: .bold, design: .rounded))
                     .lineLimit(2)
                 MetadataLine(item: item)
+                if let overview = item.kind == .film ? item.info?.overview : nil, !overview.isEmpty {
+                    Text(overview)
+                        .font(.callout)
+                        .foregroundStyle(.mutedText)
+                        .lineLimit(3)
+                        .frame(maxWidth: 620, alignment: .leading)
+                }
                 HStack(spacing: 12) {
                     PlayButton(item: item)
                     if item.resumePosition(startFromBeginning: startFromBeginning) != nil {
@@ -185,7 +192,7 @@ struct MetadataLine: View {
         let when: String? = switch item.kind {
         case .homeVideo: Formatters.date(item.bestDate)
         case .episode: item.episodeLabel
-        case .film, .extra: item.releaseYear.map(String.init)
+        case .film, .extra: item.year.map(String.init)
         }
         let parts = [when, length].compactMap { $0 }
         HStack(spacing: 10) {
