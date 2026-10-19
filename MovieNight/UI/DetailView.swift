@@ -35,12 +35,6 @@ struct DetailView: View {
                     }
 
                     HStack(spacing: 12) {
-                        if item.progressSeconds > 5 && !item.isFinished {
-                            Button("Start Over") {
-                                store.setWatched(item, false)
-                                appModel.play(item)
-                            }
-                        }
                         Button(item.isFinished ? "Mark as Unwatched" : "Mark as Watched") {
                             store.setWatched(item, !item.isFinished)
                         }
@@ -64,6 +58,11 @@ struct DetailView: View {
         .scrollIndicators(.hidden)
         .ignoresSafeArea(edges: .top)
         .background(Theme.background)
+        .toolbar {
+            ToolbarItem(placement: .navigation) {
+                LogoButton()
+            }
+        }
     }
 }
 

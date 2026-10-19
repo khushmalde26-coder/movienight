@@ -12,7 +12,7 @@ struct MovieNightApp: App {
 
     init() {
         do {
-            container = try ModelContainer(for: LibrarySource.self, MediaItem.self)
+            container = try ModelContainer(for: LibrarySource.self, MediaItem.self, WatchRecord.self)
         } catch {
             fatalError("Couldn't open the library database: \(error)")
         }

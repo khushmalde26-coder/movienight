@@ -4,6 +4,7 @@ import SwiftUI
 struct HomeView: View {
     @Environment(LibraryStore.self) private var store
     @Query(sort: \MediaItem.addedAt, order: .reverse) private var items: [MediaItem]
+    @Environment(AppModel.self) private var appModel
     @State private var showingSources = false
 
     var body: some View {
@@ -14,35 +15,37 @@ struct HomeView: View {
         let shelves = ShelfBuilder.build(snapshots)
         let hero = ShelfBuilder.heroKey(snapshots).flatMap { lookup[$0] }
 
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 36) {
-                if let hero {
-                    HeroBanner(item: hero)
-                } else if store.isScanning {
-                    ProgressView("Building your library")
-                        .frame(maxWidth: .infinity, minHeight: Theme.heroHeight)
-                } else {
-                    ContentUnavailableView("No videos yet", systemImage: "film.stack",
-                                           description: Text("The folders you added don't contain any videos."))
-                        .frame(minHeight: Theme.heroHeight)
-                }
+        ScrollViewReader { scroller in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 36) {
+                    if let hero {
+                        HeroBanner(item: hero)
+                    } else if store.isScanning {
+                        ProgressView("Building your library")
+                            .frame(maxWidth: .infinity, minHeight: Theme.heroHeight)
+                    } else {
+                        ContentUnavailableView("No videos yet", systemImage: "film.stack",
+                                               description: Text("The folders you added don't contain any videos."))
+                            .frame(minHeight: Theme.heroHeight)
+                    }
 
-                ForEach(shelves) { shelf in
-                    ShelfRow(title: shelf.title, items: shelf.itemKeys.compactMap { lookup[$0] })
+                    ForEach(shelves) { shelf in
+                        ShelfRow(title: shelf.title, items: shelf.itemKeys.compactMap { lookup[$0] })
+                    }
                 }
+                .padding(.bottom, 48)
+                .id(Self.top)
             }
-            .padding(.bottom, 48)
+            .onChange(of: appModel.homeRequests) {
+                withAnimation { scroller.scrollTo(Self.top, anchor: .top) }
+            }
         }
         .scrollIndicators(.hidden)
         .ignoresSafeArea(edges: .top)
         .background(Theme.background)
         .toolbar {
             ToolbarItem(placement: .navigation) {
-                Image("LogoHorizontal")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(height: 22)
-                    .accessibilityLabel("Movie Night")
+                LogoButton()
             }
             ToolbarItemGroup(placement: .primaryAction) {
                 if store.isScanning {
@@ -64,6 +67,27 @@ struct HomeView: View {
         .sheet(isPresented: $showingSources) {
             SourcesView()
         }
+    }
+
+    private static let top = "top"
+}
+
+/// The wordmark in the toolbar. Goes Home, like a streaming service's logo.
+struct LogoButton: View {
+    @Environment(AppModel.self) private var appModel
+
+    var body: some View {
+        Button {
+            appModel.goHome()
+        } label: {
+            Image("LogoHorizontal")
+                .resizable()
+                .scaledToFit()
+                .frame(height: 22)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Movie Night, Home")
+        .help("Home")
     }
 }
 
@@ -102,6 +126,9 @@ struct HeroBanner: View {
                 MetadataLine(item: item)
                 HStack(spacing: 12) {
                     PlayButton(item: item)
+                    if item.canResume {
+                        StartOverButton(item: item)
+                    }
                     if showsMoreInfo {
                         NavigationLink(value: item.key) {
                             Label("More Info", systemImage: "info.circle")
@@ -156,11 +183,10 @@ struct PlayButton: View {
     @Environment(LibraryStore.self) private var store
 
     var body: some View {
-        let resuming = item.progressSeconds > 5 && !item.isFinished
         Button {
             appModel.play(item)
         } label: {
-            Label(resuming ? "Resume" : "Play", systemImage: "play.fill")
+            Label(item.canResume ? "Resume" : "Play", systemImage: "play.fill")
                 .font(.headline)
                 .padding(.horizontal, 18)
                 .padding(.vertical, 8)
@@ -168,6 +194,25 @@ struct PlayButton: View {
         .buttonStyle(.borderedProminent)
         .tint(.white)
         .foregroundStyle(.black)
+        .disabled(!store.isAvailable(item) || item.isPlayable == false)
+    }
+}
+
+/// Plays from 0:00 without clearing the saved position, so closing early still leaves it in Continue Watching.
+struct StartOverButton: View {
+    let item: MediaItem
+    @Environment(AppModel.self) private var appModel
+    @Environment(LibraryStore.self) private var store
+
+    var body: some View {
+        Button {
+            appModel.play(item, fromStart: true)
+        } label: {
+            Label("From Beginning", systemImage: "arrow.counterclockwise")
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+        }
+        .buttonStyle(.bordered)
         .disabled(!store.isAvailable(item) || item.isPlayable == false)
     }
 }

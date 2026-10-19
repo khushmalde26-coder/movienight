@@ -65,6 +65,9 @@ final class MediaItem {
 
     var needsMetadata: Bool { metadataVersion < MetadataReader.version }
 
+    /// Has a saved position worth going back to.
+    var canResume: Bool { progressSeconds > 5 && !isFinished }
+
     var remainingSeconds: Double? {
         guard let duration, progressSeconds > 0, !isFinished else { return nil }
         return max(duration - progressSeconds, 0)

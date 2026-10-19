@@ -68,13 +68,14 @@ struct PlayerView: View {
             title = item.displayTitle
             switch item.engine {
             case .mpv:
-                guard let started = MPVPlaybackSession(item: item, url: url, store: store) else {
+                guard let started = MPVPlaybackSession(item: item, url: url, store: store,
+                                                       fromStart: appModel.playsFromStart) else {
                     failure = "The extended player couldn't start."
                     return
                 }
                 mpvSession = started
             case .avKit, nil:
-                session = PlaybackSession(item: item, url: url, store: store)
+                session = PlaybackSession(item: item, url: url, store: store, fromStart: appModel.playsFromStart)
             }
         } catch is CancellationError {
             return

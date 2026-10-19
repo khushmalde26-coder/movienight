@@ -115,6 +115,8 @@ final class LibraryStore {
         guard !source.isDeleted else { return }
 
         var existing = Dictionary(uniqueKeysWithValues: source.items.map { ($0.key, $0) })
+        let records = (try? context.fetch(FetchDescriptor<WatchRecord>())) ?? []
+        var history = WatchHistory.Index(records, fileName: { $0.fileName }, fileSize: { $0.fileSize })
         var toEnrich: [MediaItem] = []
         for file in files {
             let key = Self.key(source: source, relativePath: file.relativePath)
@@ -123,11 +125,22 @@ final class LibraryStore {
                 item = found
                 item.fileSize = file.fileSize
                 item.collection = file.collection
+                // Watched before watch records existed: record it so a later move keeps it.
+                if item.lastPlayedAt != nil || item.isFinished,
+                   history.match(fileName: item.fileName, fileSize: item.fileSize) == nil {
+                    history.insert(recordWatch(item), fileName: item.fileName, fileSize: item.fileSize)
+                }
             } else {
                 item = MediaItem(key: key, relativePath: file.relativePath, collection: file.collection,
                                  fileName: file.fileName, fileSize: file.fileSize, fileCreatedAt: file.createdAt)
                 item.source = source
                 context.insert(item)
+                // Moved, or its folder was removed and added back: pick up where it was left.
+                if let record = history.match(fileName: file.fileName, fileSize: file.fileSize) {
+                    item.progressSeconds = record.progressSeconds
+                    item.lastPlayedAt = record.lastPlayedAt
+                    item.isFinished = record.isFinished
+                }
             }
             if let thumbnail = item.thumbnailFile, !ThumbnailService.exists(thumbnail) {
                 item.thumbnailFile = nil
@@ -267,6 +280,7 @@ final class LibraryStore {
             // Rewatching a finished video: it's in progress again, so it can resume.
             item.isFinished = false
         }
+        recordWatch(item)
         try? context.save()
     }
 
@@ -274,7 +288,27 @@ final class LibraryStore {
         item.isFinished = watched
         item.progressSeconds = 0
         if !watched { item.lastPlayedAt = nil }
+        recordWatch(item)
         try? context.save()
+    }
+
+    /// Copies the item's watch state to its WatchRecord, creating one if needed.
+    @discardableResult
+    private func recordWatch(_ item: MediaItem) -> WatchRecord {
+        let fingerprint = WatchHistory.fingerprint(fileName: item.fileName, fileSize: item.fileSize)
+        var descriptor = FetchDescriptor<WatchRecord>(predicate: #Predicate { $0.fingerprint == fingerprint })
+        descriptor.fetchLimit = 1
+        let record: WatchRecord
+        if let found = try? context.fetch(descriptor).first {
+            record = found
+        } else {
+            record = WatchRecord(fileName: item.fileName, fileSize: item.fileSize)
+            context.insert(record)
+        }
+        record.progressSeconds = item.progressSeconds
+        record.lastPlayedAt = item.lastPlayedAt
+        record.isFinished = item.isFinished
+        return record
     }
 
     static func key(source: LibrarySource, relativePath: String) -> String {

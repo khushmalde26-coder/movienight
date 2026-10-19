@@ -11,12 +11,12 @@ final class PlaybackSession {
     private let store: LibraryStore
     private var timeObserver: Any?
 
-    init(item: MediaItem, url: URL, store: LibraryStore) {
+    init(item: MediaItem, url: URL, store: LibraryStore, fromStart: Bool = false) {
         self.item = item
         self.store = store
         self.player = AVPlayer(url: url)
 
-        if !item.isFinished, item.progressSeconds > 5 {
+        if !fromStart, item.canResume {
             player.seek(to: CMTime(seconds: item.progressSeconds, preferredTimescale: 600))
         }
         timeObserver = player.addPeriodicTimeObserver(
