@@ -13,15 +13,9 @@ final class NowPlaying {
     func start(engine: any PlayerEngine, artwork image: CGImage?) {
         stop()
         let center = MPRemoteCommandCenter.shared()
-        func on(_ command: MPRemoteCommand, _ action: @escaping @MainActor (MPRemoteCommandEvent) -> Void) {
+        func on(_ command: MPRemoteCommand, _ action: @escaping @MainActor @Sendable (Double?) -> Void) {
             command.isEnabled = true
-            let token = command.addTarget { [weak engine] event in
-                guard engine != nil else { return .noActionableNowPlayingItem }
-                // Remote commands arrive on the main thread.
-                MainActor.assumeIsolated { action(event) }
-                return .success
-            }
-            targets.append((command, token))
+            targets.append((command, Self.addTarget(to: command, action)))
         }
         on(center.playCommand) { [weak engine] _ in engine?.setPaused(false) }
         on(center.pauseCommand) { [weak engine] _ in engine?.setPaused(true) }
@@ -30,17 +24,36 @@ final class NowPlaying {
         center.skipBackwardCommand.preferredIntervals = [10]
         on(center.skipForwardCommand) { [weak engine] _ in engine?.seek(by: 10) }
         on(center.skipBackwardCommand) { [weak engine] _ in engine?.seek(by: -10) }
-        on(center.changePlaybackPositionCommand) { [weak engine] event in
-            if let event = event as? MPChangePlaybackPositionCommandEvent { engine?.seek(to: event.positionTime) }
+        on(center.changePlaybackPositionCommand) { [weak engine] position in
+            if let position { engine?.seek(to: position) }
         }
 
         #if os(iOS)
-        if let image {
-            let picture = UIImage(cgImage: image)
-            artwork = MPMediaItemArtwork(boundsSize: picture.size) { _ in picture }
-        }
+        if let image { artwork = Self.artwork(UIImage(cgImage: image)) }
         #endif
     }
+
+    // The system calls these back on its own queues. Built outside the main actor so the closures
+    // don't carry main-actor isolation, which crashes when they're called from another thread.
+
+    nonisolated private static func addTarget(to command: MPRemoteCommand,
+                                              _ action: @escaping @MainActor @Sendable (Double?) -> Void) -> Any {
+        command.addTarget { event in
+            let position = (event as? MPChangePlaybackPositionCommandEvent)?.positionTime
+            if Thread.isMainThread {
+                MainActor.assumeIsolated { action(position) }
+            } else {
+                Task { @MainActor in action(position) }
+            }
+            return .success
+        }
+    }
+
+    #if os(iOS)
+    nonisolated static func artwork(_ picture: UIImage) -> MPMediaItemArtwork {
+        MPMediaItemArtwork(boundsSize: picture.size) { @Sendable _ in picture }
+    }
+    #endif
 
     func update(title: String, state: PlayerState) {
         var info: [String: Any] = [

@@ -188,3 +188,17 @@ struct SoftwareRendererTests {
         #expect(mpv.string("current-vo") != "libmpv")
     }
 }
+
+#if os(iOS)
+import MediaPlayer
+import UIKit
+
+/// The lock screen asks for artwork on its own queue; that once crashed the app as PiP started.
+struct NowPlayingTests {
+    @Test func artworkCanBeRequestedOffTheMainThread() async {
+        let artwork = NowPlaying.artwork(UIImage(systemName: "film")!)
+        let size = await Task.detached { artwork.image(at: CGSize(width: 64, height: 64))?.size }.value
+        #expect(size != nil)
+    }
+}
+#endif

@@ -79,16 +79,17 @@ final class PlaybackSession: PlayerEngine {
         timeObserver = player.addPeriodicTimeObserver(forInterval: CMTime(seconds: 0.25, preferredTimescale: 600), queue: .main) { [weak self] time in
             MainActor.assumeIsolated { self?.tick(time.seconds) }
         }
-        observations.append(player.observe(\.timeControlStatus, options: [.initial, .new]) { [weak self] player, _ in
+        // KVO can fire on any thread; @Sendable keeps these closures off the main actor.
+        observations.append(player.observe(\.timeControlStatus, options: [.initial, .new]) { @Sendable [weak self] player, _ in
             let status = player.timeControlStatus
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 self?.state.isPaused = status == .paused
                 self?.state.isBuffering = status == .waitingToPlayAtSpecifiedRate
             }
         })
-        observations.append(playerItem.observe(\.duration, options: [.initial, .new]) { [weak self] item, _ in
+        observations.append(playerItem.observe(\.duration, options: [.initial, .new]) { @Sendable [weak self] item, _ in
             let seconds = item.duration.seconds
-            DispatchQueue.main.async { if seconds.isFinite { self?.state.duration = seconds } }
+            Task { @MainActor in if seconds.isFinite { self?.state.duration = seconds } }
         })
         endObserver = NotificationCenter.default.addObserver(forName: AVPlayerItem.didPlayToEndTimeNotification, object: playerItem, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated {
@@ -227,9 +228,9 @@ final class PlaybackSession: PlayerEngine {
         controller.delegate = delegate
         pictureInPictureDelegate = delegate
         pictureInPicture = controller
-        observations.append(controller.observe(\.isPictureInPicturePossible, options: [.initial, .new]) { [weak self] controller, _ in
+        observations.append(controller.observe(\.isPictureInPicturePossible, options: [.initial, .new]) { @Sendable [weak self] controller, _ in
             let possible = controller.isPictureInPicturePossible
-            DispatchQueue.main.async { self?.state.isPictureInPicturePossible = possible }
+            Task { @MainActor in self?.state.isPictureInPicturePossible = possible }
         })
     }
 
