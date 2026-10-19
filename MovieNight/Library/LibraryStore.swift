@@ -314,10 +314,11 @@ final class LibraryStore {
         try? context.save()
     }
 
-    /// Takes a video off Continue Watching but keeps its place, so Resume still works.
-    /// Playing it again puts it back.
+    /// Takes a video off Continue Watching and forgets its place, so it next plays from the start.
+    /// Watching it again puts it back in the row.
     func removeFromContinueWatching(_ item: MediaItem) {
         item.lastPlayedAt = nil
+        item.progressSeconds = 0
         try? context.save()
     }
 

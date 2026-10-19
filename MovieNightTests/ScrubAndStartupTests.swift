@@ -37,7 +37,7 @@ struct ScrubThumbnailerTests {
 
 @MainActor
 struct ContinueWatchingTests {
-    @Test func removingKeepsTheResumePoint() throws {
+    @Test func removingStartsTheVideoOverNextTime() throws {
         let container = try ModelContainer(for: LibrarySource.self, MediaItem.self, WatchRecord.self, SavedMoment.self,
                                            configurations: ModelConfiguration(isStoredInMemoryOnly: true))
         let store = LibraryStore(context: container.mainContext)
@@ -49,7 +49,8 @@ struct ContinueWatchingTests {
 
         store.removeFromContinueWatching(item)
         #expect(!item.isInContinueWatching)
-        #expect(item.resumePosition(startFromBeginning: false) == 120)
+        #expect(item.resumePosition(startFromBeginning: false) == nil)   // plays from the beginning
+        #expect(!item.isFinished)
 
         store.saveProgress(item, seconds: 130)          // watching again brings it back
         #expect(item.isInContinueWatching)
