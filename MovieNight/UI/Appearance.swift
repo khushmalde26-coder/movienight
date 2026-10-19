@@ -125,3 +125,28 @@ struct WallpaperSwatch: View {
         .clipped()
     }
 }
+
+// MARK: Contrast
+
+private struct HighContrastKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    /// The app's High Contrast setting or the system's Increase Contrast, set once at the root.
+    var highContrast: Bool {
+        get { self[HighContrastKey.self] }
+        set { self[HighContrastKey.self] = newValue }
+    }
+}
+
+/// Grey secondary text that turns near-white when contrast is raised.
+struct MutedTextStyle: ShapeStyle {
+    func resolve(in environment: EnvironmentValues) -> Color {
+        environment.highContrast ? Color.white.opacity(0.9) : Theme.secondaryText
+    }
+}
+
+extension ShapeStyle where Self == MutedTextStyle {
+    static var mutedText: MutedTextStyle { MutedTextStyle() }
+}

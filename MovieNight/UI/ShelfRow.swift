@@ -32,6 +32,7 @@ struct ShelfRow: View {
 struct PosterCard: View {
     let item: MediaItem
     @Environment(LibraryStore.self) private var store
+    @Environment(\.highContrast) private var highContrast
     @State private var hovering = false
 
     var body: some View {
@@ -64,6 +65,11 @@ struct PosterCard: View {
                         Badge(text: "Watched", systemImage: "checkmark")
                     }
                 }
+                .overlay {
+                    if highContrast {
+                        RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(.white.opacity(0.7), lineWidth: 1.5)
+                    }
+                }
                 .shadow(color: .black.opacity(hovering ? 0.6 : 0), radius: 16, y: 8)
                 .scaleEffect(hovering ? 1.05 : 1)
 
@@ -74,7 +80,7 @@ struct PosterCard: View {
                 if let subtitle = Formatters.remaining(item.remainingSeconds) ?? subtitle {
                     Text(subtitle)
                         .font(.caption)
-                        .foregroundStyle(Theme.secondaryText)
+                        .foregroundStyle(.mutedText)
                 }
                 // Resolution is only worth a chip when it's notable; HD is the norm.
                 ForEach((item.quality?.badges ?? []).filter { $0 != "HD" && $0 != "Vertical" }, id: \.self) {
@@ -84,12 +90,32 @@ struct PosterCard: View {
         }
         .frame(width: Theme.cardWidth, alignment: .leading)
         .opacity(available ? 1 : 0.45)
+        // One stop for VoiceOver: title, when, how long, how far through, and anything notable.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityDescription(available: available))
+        .accessibilityHint("Shows details")
         .onHover { hovering = $0 }
         .animation(.spring(duration: 0.25), value: hovering)
     }
 }
 
 extension PosterCard {
+    fileprivate func accessibilityDescription(available: Bool) -> String {
+        var parts = [item.displayTitle]
+        if let date = item.bestDate, !DisplayTitle.isCameraName((item.fileName as NSString).deletingPathExtension) {
+            parts.append(date.formatted(date: .long, time: .omitted))
+        }
+        if let length = Formatters.duration(item.duration) { parts.append(length) }
+        if item.isFinished {
+            parts.append("Watched")
+        } else if item.progressFraction > 0.02 {
+            parts.append("\(Int((item.progressFraction * 100).rounded())) percent watched")
+        }
+        parts += (item.quality?.badges ?? []).filter { $0 != "HD" }.map(QualityChip.spoken)
+        if !available { parts.append("Offline") } else if item.isPlayable == false { parts.append("Can't be opened") }
+        return parts.joined(separator: ", ")
+    }
+
     /// The length is already stamped on the artwork, so the line under the title says when or where.
     /// Camera-named clips are already titled by date, so they show their folder instead.
     fileprivate var subtitle: String? {
@@ -118,13 +144,14 @@ struct ProgressBar: View {
 struct Badge: View {
     let text: String
     let systemImage: String
+    @Environment(\.highContrast) private var highContrast
 
     var body: some View {
         Label(text, systemImage: systemImage)
             .font(.caption2.weight(.semibold))
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .background(.ultraThinMaterial, in: Capsule())
+            .background(highContrast ? AnyShapeStyle(.black) : AnyShapeStyle(.ultraThinMaterial), in: Capsule())
             .padding(8)
     }
 }

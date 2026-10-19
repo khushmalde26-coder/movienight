@@ -1,4 +1,5 @@
 import QuartzCore
+import SwiftUI
 #if os(macOS)
 import AppKit
 #else
@@ -39,6 +40,7 @@ final class MPVRenderView: NSView {
         metalLayer.contentsScale = scale
         metalLayer.frame = bounds
         metalLayer.drawableSize = CGSize(width: bounds.width * scale, height: bounds.height * scale)
+        metalLayer.sublayers?.forEach { $0.frame = metalLayer.bounds }
     }
 }
 #else
@@ -59,6 +61,22 @@ final class MPVRenderView: UIView {
         let scale = traitCollection.displayScale
         metalLayer.contentsScale = scale
         metalLayer.drawableSize = CGSize(width: bounds.width * scale, height: bounds.height * scale)
+        // The Picture in Picture layer sits on top, empty except while PiP is showing.
+        metalLayer.sublayers?.forEach { $0.frame = bounds }
     }
+}
+#endif
+
+#if os(macOS)
+struct MPVSurface: NSViewRepresentable {
+    let view: MPVRenderView
+    func makeNSView(context: Context) -> MPVRenderView { view }
+    func updateNSView(_ nsView: MPVRenderView, context: Context) {}
+}
+#else
+struct MPVSurface: UIViewRepresentable {
+    let view: MPVRenderView
+    func makeUIView(context: Context) -> MPVRenderView { view }
+    func updateUIView(_ uiView: MPVRenderView, context: Context) {}
 }
 #endif

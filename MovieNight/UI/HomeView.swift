@@ -62,17 +62,20 @@ struct HomeView: View {
                     } label: {
                         Label("Rescan", systemImage: "arrow.clockwise")
                     }
+                    .keyboardShortcut("r", modifiers: .command)
                     .disabled(store.isScanning)
                     Button {
                         showingSources = true
                     } label: {
                         Label("Library", systemImage: "folder")
                     }
+                    .keyboardShortcut("l", modifiers: .command)
                     Button {
                         showingSettings = true
                     } label: {
                         Label("Settings", systemImage: "gearshape")
                     }
+                    .keyboardShortcut(",", modifiers: .command)
                 }
             }
         }
@@ -91,6 +94,8 @@ extension HomeView {
 
 struct HeroBanner: View {
     let item: MediaItem
+    /// Scales with the system text size, unlike a fixed point size.
+    @ScaledMetric(relativeTo: .largeTitle) private var titleSize: CGFloat = 40
     /// Off on the detail page, where "More Info" would push the same page again.
     var showsMoreInfo = true
     @Environment(AppModel.self) private var appModel
@@ -120,7 +125,7 @@ struct HeroBanner: View {
                         .foregroundStyle(.tint)
                 }
                 Text(item.displayTitle)
-                    .font(.system(size: 40, weight: .bold, design: .rounded))
+                    .font(.system(size: titleSize, weight: .bold, design: .rounded))
                     .lineLimit(2)
                 MetadataLine(item: item)
                 HStack(spacing: 12) {
@@ -164,7 +169,7 @@ struct MetadataLine: View {
         HStack(spacing: 10) {
             Text(parts.joined(separator: "  ·  "))
                 .font(.subheadline)
-                .foregroundStyle(Theme.secondaryText)
+                .foregroundStyle(.mutedText)
             ForEach(item.quality?.badges ?? [], id: \.self) { QualityChip(text: $0) }
         }
     }
@@ -174,14 +179,28 @@ struct MetadataLine: View {
 struct QualityChip: View {
     let text: String
     var compact = false
+    @ScaledMetric(relativeTo: .caption2) private var compactSize: CGFloat = 9
 
     var body: some View {
         Text(text)
-            .font(compact ? .system(size: 9, weight: .bold) : .caption2.weight(.bold))
+            .font(compact ? .system(size: compactSize, weight: .bold) : .caption2.weight(.bold))
             .padding(.horizontal, compact ? 4 : 6)
             .padding(.vertical, compact ? 1 : 2)
             .foregroundStyle(.tint.opacity(0.9))
             .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(.tint.opacity(0.5), lineWidth: 1))
+            .accessibilityLabel(Self.spoken(text))
+    }
+
+    /// "60fps" is read as "6 0 F P S"; say what it means instead.
+    static func spoken(_ badge: String) -> String {
+        switch badge {
+        case "HDR": "High dynamic range"
+        case "4K": "4K"
+        case "SD": "Standard definition"
+        case "HD": "High definition"
+        default:
+            badge.hasSuffix("fps") ? "\(badge.dropLast(3)) frames per second" : badge
+        }
     }
 }
 

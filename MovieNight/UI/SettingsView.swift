@@ -12,6 +12,8 @@ struct SettingsView: View {
     @AppStorage(AccentChoice.key) private var accent = AccentChoice.silver
     @AppStorage(Wallpaper.key) private var wallpaper = Wallpaper.ink
     @AppStorage("wallpaperRevision") private var wallpaperRevision = 0
+    @AppStorage(AccessibilityPreferences.largeControlsKey) private var largeControls = false
+    @AppStorage(AccessibilityPreferences.highContrastKey) private var highContrast = false
     @State private var showingDetails = false
     @State private var photoItem: PhotosPickerItem?
     @State private var photoError: String?
@@ -26,6 +28,7 @@ struct SettingsView: View {
                 playback
                 sound
                 appearance
+                accessibility
             }
             .formStyle(.grouped)
             .navigationTitle("Settings")
@@ -100,6 +103,19 @@ struct SettingsView: View {
     private var balanceLabel: String {
         if balance == 0 { return "Centre" }
         return "\(Int((abs(balance) * 100).rounded()))% \(balance < 0 ? "Left" : "Right")"
+    }
+
+    // MARK: Accessibility
+
+    private var accessibility: some View {
+        Section {
+            Toggle("Larger Player Controls", isOn: $largeControls)
+            Toggle("High Contrast", isOn: $highContrast)
+        } header: {
+            Text("Accessibility")
+        } footer: {
+            Text("Text follows the size set in Settings > Display & Brightness > Text Size. High Contrast is also on whenever Increase Contrast is on in the system settings. With a keyboard: Space plays and pauses, arrows skip and change volume, C cycles subtitles, B saves a moment, P starts Picture in Picture.")
+        }
     }
 
     // MARK: Appearance

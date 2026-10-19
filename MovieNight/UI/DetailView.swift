@@ -132,7 +132,7 @@ private struct InfoRow: View {
     var body: some View {
         if let value {
             GridRow {
-                Text(label).foregroundStyle(Theme.secondaryText)
+                Text(label).foregroundStyle(.mutedText)
                 Text(value).textSelection(.enabled)
             }
         }
@@ -158,7 +158,7 @@ private struct TimestampList: View {
                             Spacer(minLength: 12)
                             Text(Formatters.clock(row.seconds))
                                 .monospacedDigit()
-                                .foregroundStyle(Theme.secondaryText)
+                                .foregroundStyle(.mutedText)
                         }
                         .contentShape(Rectangle())
                     }
@@ -166,7 +166,7 @@ private struct TimestampList: View {
                     if let onDelete {
                         Button { onDelete(index) } label: { Image(systemName: "trash") }
                             .buttonStyle(.plain)
-                            .foregroundStyle(Theme.secondaryText)
+                            .foregroundStyle(.mutedText)
                             .accessibilityLabel("Delete")
                     }
                 }

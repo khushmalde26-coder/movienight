@@ -6,6 +6,8 @@ struct RootView: View {
     @Environment(AppModel.self) private var appModel
     @Query private var sources: [LibrarySource]
     @AppStorage(AccentChoice.key) private var accent = AccentChoice.silver
+    @AppStorage(AccessibilityPreferences.highContrastKey) private var highContrast = false
+    @Environment(\.colorSchemeContrast) private var systemContrast
 
     var body: some View {
         ZStack {
@@ -30,6 +32,7 @@ struct RootView: View {
         }
         .animation(.easeInOut(duration: 0.25), value: appModel.nowPlayingKey)
         .tint(accent.color)
+        .environment(\.highContrast, highContrast || systemContrast == .increased)
     }
 }
 
@@ -47,7 +50,7 @@ struct WelcomeView: View {
                 .accessibilityLabel("Movie Night")
             Text("Point it at the folders or videos you want to watch: on this device, in iCloud Drive, or on an external drive. Everything stays where it is.")
                 .font(.title3)
-                .foregroundStyle(Theme.secondaryText)
+                .foregroundStyle(.mutedText)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 520)
             HStack(spacing: 12) {
