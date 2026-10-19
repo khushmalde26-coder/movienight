@@ -59,6 +59,8 @@ struct PlayerView: View {
         }
         do {
             let url = try await store.prepareForPlayback(item)
+            // Closed while the file was downloading or being read: don't start a player nobody can see.
+            try Task.checkCancellation()
             if item.isPlayable == false {
                 failure = PlaybackError.unsupportedFormat.localizedDescription
                 return

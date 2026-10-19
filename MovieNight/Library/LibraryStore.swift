@@ -263,6 +263,9 @@ final class LibraryStore {
         if let duration = item.duration, duration > 0, seconds / duration > 0.95 {
             item.isFinished = true
             item.progressSeconds = 0
+        } else if seconds > 5 {
+            // Rewatching a finished video: it's in progress again, so it can resume.
+            item.isFinished = false
         }
         try? context.save()
     }

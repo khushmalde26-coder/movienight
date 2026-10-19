@@ -22,7 +22,7 @@ struct DetailView: View {
         }
         return ScrollView {
             VStack(alignment: .leading, spacing: 28) {
-                HeroBanner(item: item)
+                HeroBanner(item: item, showsMoreInfo: false)
 
                 VStack(alignment: .leading, spacing: 16) {
                     if item.isPlayable == false {

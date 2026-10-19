@@ -19,6 +19,14 @@ targets:
     type: application
     supportedDestinations: [macOS, iOS]
     sources: [MovieNight]
+    # Merged with the generated keys. Picture in Picture and audio after leaving the app
+    # need the audio background mode, which has no INFOPLIST_KEY_ build setting.
+    info:
+      path: MovieNight/Resources/Info.plist
+      properties:
+        UIBackgroundModes: [audio]
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
     dependencies:
       - package: MPVKit
         product: MPVKit

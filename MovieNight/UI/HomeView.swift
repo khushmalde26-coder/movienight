@@ -69,6 +69,8 @@ struct HomeView: View {
 
 struct HeroBanner: View {
     let item: MediaItem
+    /// Off on the detail page, where "More Info" would push the same page again.
+    var showsMoreInfo = true
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
@@ -100,12 +102,14 @@ struct HeroBanner: View {
                 MetadataLine(item: item)
                 HStack(spacing: 12) {
                     PlayButton(item: item)
-                    NavigationLink(value: item.key) {
-                        Label("More Info", systemImage: "info.circle")
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 8)
+                    if showsMoreInfo {
+                        NavigationLink(value: item.key) {
+                            Label("More Info", systemImage: "info.circle")
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 8)
+                        }
+                        .buttonStyle(.bordered)
                     }
-                    .buttonStyle(.bordered)
                 }
                 .padding(.top, 4)
             }
