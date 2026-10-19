@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The Apple app's monochrome palette. -->
+    <color name="background">#0B0B0C</color>
+    <color name="graphite">#1C1C1E</color>
+</resources>
