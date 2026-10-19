@@ -94,6 +94,20 @@ enum ShelfBuilder {
         return shelves
     }
 
+    /// Home keeps the rows worth opening the app for: what you're watching, today's memories, what's new,
+    /// then a few highlights. Everything else is a tap away in Library and Collections.
+    static func homeShelves(_ shelves: [Shelf], highlights: Int = 3) -> [Shelf] {
+        let primary = shelves.filter { [.continueWatching, .onThisDay, .recentlyAdded].contains($0.kind) }
+        func first(_ match: (Shelf.Kind) -> Bool) -> Shelf? { shelves.first { match($0.kind) } }
+        let candidates: [Shelf?] = [
+            first { $0 == .longVideos },
+            first { if case .year = $0 { true } else { false } },   // the most recent year
+            first { $0 == .quickClips },
+            first { if case .collection = $0 { true } else { false } },
+        ]
+        return primary + candidates.compactMap { $0 }.prefix(highlights)
+    }
+
     /// Clips shot within a few days of today's date in earlier years, newest year first.
     static func onThisDay(_ items: [ShelfInput], now: Date, calendar: Calendar) -> [ShelfInput] {
         let today = calendar.dateComponents([.month, .day], from: now)

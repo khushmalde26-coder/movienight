@@ -3,6 +3,8 @@ import SwiftUI
 
 /// Manage the folders and individual videos the library is built from.
 struct SourcesView: View {
+    /// true when pushed inside Settings rather than shown as its own sheet.
+    var embedded = false
     @Environment(LibraryStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \LibrarySource.addedAt) private var sources: [LibrarySource]
@@ -12,7 +14,22 @@ struct SourcesView: View {
     var body: some View {
         let folders = sources.filter { !$0.isFile }
         let videos = sources.filter(\.isFile)
-        NavigationStack {
+        if embedded {
+            list(folders: folders, videos: videos)
+        } else {
+            NavigationStack {
+                list(folders: folders, videos: videos)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Done") { dismiss() }
+                        }
+                    }
+            }
+            .frame(minWidth: 480, minHeight: 360)
+        }
+    }
+
+    private func list(folders: [LibrarySource], videos: [LibrarySource]) -> some View {
             List {
                 Section {
                     NavigationLink {
@@ -36,7 +53,7 @@ struct SourcesView: View {
                     Text(error).foregroundStyle(.red).font(.callout)
                 }
             }
-            .navigationTitle("Library")
+            .navigationTitle("Folders and Videos")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Menu {
@@ -46,13 +63,8 @@ struct SourcesView: View {
                         Label("Add", systemImage: "plus")
                     }
                 }
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }
-                }
             }
             .libraryImporter($importing)
-        }
-        .frame(minWidth: 480, minHeight: 360)
     }
 
     private func rows(_ sources: [LibrarySource]) -> some View {

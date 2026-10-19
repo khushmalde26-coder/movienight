@@ -3,7 +3,10 @@ import SwiftUI
 
 /// Playback presets with their details tucked away, sound, and appearance.
 struct SettingsView: View {
+    /// true inside the Settings tab: no navigation stack or Done button of its own, plus Library management.
+    var embedded = false
     @Environment(\.dismiss) private var dismiss
+    @Environment(LibraryStore.self) private var store
     @AppStorage(PlaybackPreferences.startFromBeginningKey) private var startFromBeginning = false
     @AppStorage(PlaybackPreferences.videoQualityKey) private var videoQuality = VideoQualityMode.standard
     @AppStorage(PlaybackPreferences.dialogueBoostKey) private var dialogueBoost = false
@@ -23,22 +26,57 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            Form {
-                playback
-                sound
-                appearance
-                accessibility
-            }
-            .formStyle(.grouped)
-            .navigationTitle("Settings")
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
+        if embedded {
+            form
+        } else {
+            NavigationStack {
+                form.toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { dismiss() }
+                    }
                 }
             }
+            .frame(minWidth: 480, minHeight: 560)
         }
-        .frame(minWidth: 480, minHeight: 560)
+    }
+
+    private var form: some View {
+        Form {
+            if embedded { library }
+            playback
+            sound
+            appearance
+            accessibility
+        }
+        .formStyle(.grouped)
+        .navigationTitle("Settings")
+    }
+
+    // MARK: Library
+
+    private var library: some View {
+        Section("Library") {
+            NavigationLink {
+                SourcesView(embedded: true)
+            } label: {
+                Label("Folders and Videos", systemImage: "folder")
+            }
+            NavigationLink {
+                LibraryHealthView()
+            } label: {
+                Label("Suggestions", systemImage: "sparkles")
+            }
+            Button {
+                Task { await store.rescanAll() }
+            } label: {
+                LabeledContent {
+                    if store.isScanning { ProgressView().controlSize(.small) }
+                } label: {
+                    Label("Rescan Library", systemImage: "arrow.clockwise")
+                }
+            }
+            .disabled(store.isScanning)
+        }
     }
 
     // MARK: Playback

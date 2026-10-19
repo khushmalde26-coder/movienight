@@ -30,6 +30,9 @@ struct MovieNightApp: App {
                 .environment(appModel)
                 .preferredColorScheme(.dark)
                 .task {
+                    #if DEBUG
+                    await applyDebugLaunchArguments()
+                    #endif
                     store.activateAll()
                     await store.rescanAll()
                 }
@@ -51,4 +54,18 @@ struct MovieNightApp: App {
         .windowToolbarStyle(.unified(showsTitle: false))
         #endif
     }
+
+    #if DEBUG
+    /// Development only, for screenshots and UI checks without the file picker:
+    /// `-SeedFolder <path>` adds a folder when the library is empty, `-StartTab <home|library|collections|settings>`.
+    @MainActor
+    private func applyDebugLaunchArguments() async {
+        let defaults = UserDefaults.standard
+        if let tab = defaults.string(forKey: "StartTab").flatMap(AppTab.init(rawValue:)) { appModel.tab = tab }
+        if let path = defaults.string(forKey: "SeedFolder"),
+           (try? container.mainContext.fetchCount(FetchDescriptor<LibrarySource>())) == 0 {
+            await store.addFolder(URL(filePath: path, directoryHint: .isDirectory))
+        }
+    }
+    #endif
 }

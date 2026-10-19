@@ -16,12 +16,7 @@ struct RootView: View {
             if sources.isEmpty {
                 WelcomeView()
             } else {
-                NavigationStack {
-                    HomeView()
-                        .navigationDestination(for: String.self) { key in
-                            DetailView(itemKey: key)
-                        }
-                }
+                MainTabs()
             }
 
             if let key = appModel.nowPlayingKey {
@@ -33,6 +28,46 @@ struct RootView: View {
         .animation(.easeInOut(duration: 0.25), value: appModel.nowPlayingKey)
         .tint(accent.color)
         .environment(\.highContrast, highContrast || systemContrast == .increased)
+    }
+}
+
+/// Home, Library, Collections and Settings: a sidebar on iPad and Mac (iPadOS 18 / macOS 15), tabs otherwise.
+struct MainTabs: View {
+    @Environment(AppModel.self) private var appModel
+
+    var body: some View {
+        @Bindable var model = appModel
+        if #available(iOS 18, macOS 15, *) {
+            TabView(selection: $model.tab) {
+                ForEach(AppTab.allCases, id: \.self) { tab in
+                    Tab(tab.title, systemImage: tab.systemImage, value: tab) { section(tab) }
+                }
+            }
+            .tabViewStyle(.sidebarAdaptable)
+        } else {
+            TabView(selection: $model.tab) {
+                ForEach(AppTab.allCases, id: \.self) { tab in
+                    section(tab)
+                        .tabItem { Label(tab.title, systemImage: tab.systemImage) }
+                        .tag(tab)
+                }
+            }
+        }
+    }
+
+    /// Each section keeps its own navigation, so going back in Library doesn't reset Home.
+    private func section(_ tab: AppTab) -> some View {
+        NavigationStack {
+            Group {
+                switch tab {
+                case .home: HomeView()
+                case .library: LibraryView()
+                case .collections: CollectionsView()
+                case .settings: SettingsView(embedded: true)
+                }
+            }
+            .navigationDestination(for: String.self) { key in DetailView(itemKey: key) }
+        }
     }
 }
 

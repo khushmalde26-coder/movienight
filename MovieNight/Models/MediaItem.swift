@@ -92,6 +92,12 @@ final class MediaItem {
         return min(progressSeconds / duration, 1)
     }
 
+    var browseEntry: BrowseEntry {
+        BrowseEntry(key: key, title: displayTitle, fileName: fileName, collection: collection, sourceID: source?.id,
+                    sourceName: source?.name ?? "", isFileSource: source?.isFile ?? false, date: bestDate,
+                    addedAt: addedAt, duration: duration, progressFraction: progressFraction, isFinished: isFinished)
+    }
+
     var healthInput: HealthInput {
         HealthInput(key: key, fileName: fileName, fileSize: fileSize, duration: duration, isPlayable: isPlayable, isLocal: isLocal)
     }

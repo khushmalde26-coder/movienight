@@ -3,16 +3,16 @@ import SwiftUI
 
 struct HomeView: View {
     @Environment(LibraryStore.self) private var store
+    @Environment(AppModel.self) private var appModel
     @Query(sort: \MediaItem.addedAt, order: .reverse) private var items: [MediaItem]
-    @State private var showingSources = false
-    @State private var showingSettings = false
 
     var body: some View {
         // Recomputed on change; cheap for libraries in the low thousands.
         // TODO: cache keyed on a library revision if it shows up in Instruments.
         let snapshots = items.map(\.snapshot)
         let lookup = Dictionary(uniqueKeysWithValues: items.map { ($0.key, $0) })
-        let shelves = ShelfBuilder.build(snapshots)
+        // Home is curated; the rest of the rows live in Library and Collections.
+        let shelves = ShelfBuilder.homeShelves(ShelfBuilder.build(snapshots))
         let hero = ShelfBuilder.heroKey(snapshots).flatMap { lookup[$0] }
 
         ScrollViewReader { scroller in
@@ -32,6 +32,21 @@ struct HomeView: View {
                     ForEach(shelves) { shelf in
                         ShelfRow(title: shelf.title, items: shelf.itemKeys.compactMap { lookup[$0] })
                     }
+
+                    if !items.isEmpty {
+                        HStack(spacing: 12) {
+                            Button { appModel.tab = .library } label: {
+                                Label("Browse All \(items.count) Videos", systemImage: "square.grid.2x2")
+                                    .padding(.horizontal, 14).padding(.vertical, 8)
+                            }
+                            Button { appModel.tab = .collections } label: {
+                                Label("Collections", systemImage: "rectangle.stack")
+                                    .padding(.horizontal, 14).padding(.vertical, 8)
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        .padding(.horizontal, Theme.gutter)
+                    }
                 }
                 .padding(.bottom, 48)
                 .id(Self.topID)
@@ -40,18 +55,11 @@ struct HomeView: View {
             .ignoresSafeArea(edges: .top)
             .background { WallpaperBackground() }
             .toolbar {
-                ToolbarItem(placement: .navigation) {
-                    // Like a streaming app's logo: takes you back to the top of Home.
-                    Button {
-                        withAnimation(.easeInOut) { scroller.scrollTo(Self.topID, anchor: .top) }
-                    } label: {
-                        Image("LogoHorizontal")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(height: 22)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Movie Night, back to top")
+                if #available(iOS 26, macOS 26, *) {
+                    // The logo is the brand, not a toolbar button: no glass bubble squeezing it into a circle.
+                    logo(scroller).sharedBackgroundVisibility(.hidden)
+                } else {
+                    logo(scroller)
                 }
                 ToolbarItemGroup(placement: .primaryAction) {
                     if store.isScanning {
@@ -64,32 +72,30 @@ struct HomeView: View {
                     }
                     .keyboardShortcut("r", modifiers: .command)
                     .disabled(store.isScanning)
-                    Button {
-                        showingSources = true
-                    } label: {
-                        Label("Library", systemImage: "folder")
-                    }
-                    .keyboardShortcut("l", modifiers: .command)
-                    Button {
-                        showingSettings = true
-                    } label: {
-                        Label("Settings", systemImage: "gearshape")
-                    }
-                    .keyboardShortcut(",", modifiers: .command)
                 }
             }
-        }
-        .sheet(isPresented: $showingSources) {
-            SourcesView()
-        }
-        .sheet(isPresented: $showingSettings) {
-            SettingsView()
         }
     }
 }
 
 extension HomeView {
     fileprivate static let topID = "home-top"
+
+    /// Like a streaming app's logo: takes you back to the top of Home.
+    fileprivate func logo(_ scroller: ScrollViewProxy) -> some ToolbarContent {
+        ToolbarItem(placement: .navigation) {
+            Button {
+                withAnimation(.easeInOut) { scroller.scrollTo(Self.topID, anchor: .top) }
+            } label: {
+                Image("LogoHorizontal")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 130, height: 26)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Movie Night, back to top")
+        }
+    }
 }
 
 struct HeroBanner: View {
