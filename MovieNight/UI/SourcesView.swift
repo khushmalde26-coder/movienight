@@ -1,42 +1,58 @@
 import SwiftData
 import SwiftUI
 
-/// Manage the folders the library is built from.
+/// Manage the folders and individual videos the library is built from.
 struct SourcesView: View {
     @Environment(LibraryStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \LibrarySource.addedAt) private var sources: [LibrarySource]
-    @State private var picking = false
+    @State private var importing: LibraryImport?
 
     var body: some View {
+        let folders = sources.filter { !$0.isFile }
+        let videos = sources.filter(\.isFile)
         NavigationStack {
             List {
-                ForEach(sources) { source in
-                    SourceRow(source: source)
-                        .contextMenu {
-                            Button("Rescan") { Task { await store.rescan(source) } }
-                            Button("Remove from Library", role: .destructive) { store.remove(source) }
-                        }
-                        .swipeActions {
-                            Button("Remove", role: .destructive) { store.remove(source) }
-                        }
+                if !folders.isEmpty {
+                    Section("Folders") { rows(folders) }
+                }
+                if !videos.isEmpty {
+                    Section("Videos") { rows(videos) }
                 }
                 if let error = store.lastError {
                     Text(error).foregroundStyle(.red).font(.callout)
                 }
             }
-            .navigationTitle("Folders")
+            .navigationTitle("Library")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
-                    Button { picking = true } label: { Label("Add Folder", systemImage: "plus") }
+                    Menu {
+                        Button { importing = .folders } label: { Label("Add Folder…", systemImage: "folder.badge.plus") }
+                        Button { importing = .videos } label: { Label("Add Videos…", systemImage: "film") }
+                    } label: {
+                        Label("Add", systemImage: "plus")
+                    }
                 }
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") { dismiss() }
                 }
             }
-            .folderImporter(isPresented: $picking)
+            .libraryImporter($importing)
         }
         .frame(minWidth: 480, minHeight: 360)
+    }
+
+    private func rows(_ sources: [LibrarySource]) -> some View {
+        ForEach(sources) { source in
+            SourceRow(source: source)
+                .contextMenu {
+                    Button("Rescan") { Task { await store.rescan(source) } }
+                    Button("Remove from Library", role: .destructive) { store.remove(source) }
+                }
+                .swipeActions {
+                    Button("Remove", role: .destructive) { store.remove(source) }
+                }
+        }
     }
 }
 
@@ -48,12 +64,12 @@ private struct SourceRow: View {
         let offline = store.offlineSources.contains(source.id)
         let scanning = store.scanningSources.contains(source.id)
         HStack(spacing: 12) {
-            Image(systemName: offline ? "externaldrive.badge.xmark" : "folder.fill")
+            Image(systemName: offline ? "externaldrive.badge.xmark" : source.isFile ? "film.fill" : "folder.fill")
                 .foregroundStyle(offline ? .secondary : Theme.accent)
                 .font(.title2)
             VStack(alignment: .leading, spacing: 2) {
                 Text(source.name).font(.headline)
-                Text(offline ? "Not connected. Videos stay in the library until it's back." : "\(source.items.count) videos")
+                Text(detail(offline: offline))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -61,5 +77,14 @@ private struct SourceRow: View {
             if scanning { ProgressView().controlSize(.small) }
         }
         .padding(.vertical, 4)
+    }
+
+    private func detail(offline: Bool) -> String {
+        switch (offline, source.isFile) {
+        case (true, false): "Not connected. Videos stay in the library until it's back."
+        case (true, true): "Not connected. It stays in the library until it's back."
+        case (false, false): "\(source.items.count) videos"
+        case (false, true): source.items.first.map { Formatters.size($0.fileSize) } ?? "Video"
+        }
     }
 }

@@ -44,4 +44,32 @@ struct LibraryScannerTests {
             try await LibraryScanner().scan(root: missing)
         }
     }
+
+    @Test func singleFileScansUnderItsName() async throws {
+        let root = try makeFolder(["Films/Movie.mkv"])
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let file = try await LibraryScanner().scan(file: root.appending(path: "Films/Movie.mkv"))
+        #expect(file.relativePath == "Movie.mkv")
+        #expect(file.collection == "")
+        #expect(file.fileSize == 3)
+        #expect(file.isLocal)
+    }
+
+    @Test func evictedSingleFileIsKnownButNotLocal() async throws {
+        let root = try makeFolder(["Films/.Movie.mov.icloud"])
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let file = try await LibraryScanner().scan(file: root.appending(path: "Films/Movie.mov"))
+        #expect(file.relativePath == "Movie.mov")
+        #expect(file.isLocal == false)
+    }
+
+    /// An unplugged drive must not make a picked video vanish from the library.
+    @Test func missingSingleFileThrows() async {
+        let missing = URL.temporaryDirectory.appending(path: "NotThere-\(UUID().uuidString)/Movie.mp4")
+        await #expect(throws: (any Error).self) {
+            try await LibraryScanner().scan(file: missing)
+        }
+    }
 }

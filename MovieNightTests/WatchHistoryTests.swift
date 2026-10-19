@@ -69,4 +69,41 @@ struct WatchHistoryTests {
         #expect(source.items.map(\.relativePath) == ["Archive/renamed.mp4"])
         #expect(source.items.first?.progressSeconds == 0)
     }
+
+    /// A picked video behaves like a folder when its drive goes away: kept, offline, then back.
+    @MainActor
+    @Test func fileSourceGoesOfflineAndComesBack() async throws {
+        let dir = URL.temporaryDirectory.appending(path: "FileSourceTest-\(UUID().uuidString)")
+        let file = dir.appending(path: "Movie.mp4")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try Data([0, 1, 2]).write(to: file)
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let container = try ModelContainer(
+            for: LibrarySource.self, MediaItem.self, WatchRecord.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        )
+        let store = LibraryStore(context: container.mainContext)
+        let source = LibrarySource(name: "Movie", bookmark: try SecurityScopedBookmark.make(for: file), isFile: true)
+        container.mainContext.insert(source)
+
+        await store.rescan(source)
+        let item = try #require(source.items.first)
+        #expect(source.items.count == 1)
+        #expect(store.fileURL(for: item)?.standardizedFileURL.path == file.standardizedFileURL.path)
+        store.saveProgress(item, seconds: 42)
+
+        let parked = URL.temporaryDirectory.appending(path: "Parked-\(UUID().uuidString).mp4")
+        try FileManager.default.moveItem(at: file, to: parked)
+        defer { try? FileManager.default.removeItem(at: parked) }
+        await store.rescan(source)
+        #expect(!store.isAvailable(item))
+        #expect(source.items.count == 1)
+        #expect(source.items.first?.progressSeconds == 42)
+
+        try FileManager.default.moveItem(at: parked, to: file)
+        await store.refreshAvailability()
+        #expect(store.isAvailable(item))
+        #expect(source.items.first?.progressSeconds == 42)
+    }
 }

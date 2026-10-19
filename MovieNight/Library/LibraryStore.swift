@@ -25,11 +25,37 @@ final class LibraryStore {
     // MARK: Sources
 
     func addFolder(_ url: URL) async {
+        await add(url, isFile: false)
+    }
+
+    /// Individual videos. Each becomes its own source with its own bookmark, so it has the same
+    /// offline behaviour as a folder: kept, greyed out, while its drive is away.
+    func addFiles(_ urls: [URL]) async {
+        let alreadyAdded = Set(fileSourcePaths())
+        for url in urls {
+            guard LibraryScanner.videoExtensions.contains(url.pathExtension.lowercased()) else {
+                lastError = "\(url.lastPathComponent) isn't a video file."
+                continue
+            }
+            guard !alreadyAdded.contains(url.standardizedFileURL.path) else { continue }
+            await add(url, isFile: true)
+        }
+    }
+
+    private func fileSourcePaths() -> [String] {
+        let sources = (try? context.fetch(FetchDescriptor<LibrarySource>(predicate: #Predicate { $0.isFile == true }))) ?? []
+        return sources.compactMap { source in
+            (roots[source.id] ?? (try? SecurityScopedBookmark.resolve(source.bookmark))?.url)?.standardizedFileURL.path
+        }
+    }
+
+    private func add(_ url: URL, isFile: Bool) async {
         // Needed on iOS before bookmarking a picker URL; harmless on macOS.
         let didStart = url.startAccessingSecurityScopedResource()
         do {
             let bookmark = try SecurityScopedBookmark.make(for: url)
-            let source = LibrarySource(name: FileManager.default.displayName(atPath: url.path), bookmark: bookmark)
+            let source = LibrarySource(name: FileManager.default.displayName(atPath: url.path), bookmark: bookmark,
+                                       isFile: isFile)
             context.insert(source)
             try context.save()
             if didStart { url.stopAccessingSecurityScopedResource() }
@@ -67,7 +93,7 @@ final class LibraryStore {
         do {
             let (url, isStale) = try SecurityScopedBookmark.resolve(source.bookmark)
             _ = url.startAccessingSecurityScopedResource()
-            guard FileManager.default.fileExists(atPath: url.path) else {
+            guard isReachable(source, at: url) else {
                 url.stopAccessingSecurityScopedResource()
                 offlineSources.insert(source.id)
                 return nil
@@ -97,7 +123,7 @@ final class LibraryStore {
         guard let root = activate(source), !scanningSources.contains(source.id) else { return }
         // A drive unplugged since launch still has a cached root. Scanning it would find nothing and
         // delete every item, so confirm it's really there first.
-        guard isReachable(root) else {
+        guard isReachable(source, at: root) else {
             markOffline(source)
             return
         }
@@ -106,9 +132,9 @@ final class LibraryStore {
 
         let files: [ScannedFile]
         do {
-            files = try await scanner.scan(root: root)
+            files = source.isFile ? [try await scanner.scan(file: root)] : try await scanner.scan(root: root)
         } catch {
-            if !isReachable(root) { markOffline(source) }
+            if !isReachable(source, at: root) { markOffline(source) }
             lastError = "Couldn't read \(source.name): \(error.localizedDescription)"
             return
         }
@@ -169,7 +195,7 @@ final class LibraryStore {
     /// AVFoundation first (fast, and it means AVKit can play it); anything it can't open goes
     /// through mpv/FFmpeg, which handles MKV, AVI, WMV, FLV, RealMedia, VOB and the rest.
     private func enrich(_ item: MediaItem, root: URL) async {
-        let url = root.appending(path: item.relativePath)
+        let url = Self.url(of: item, root: root)
         let key = item.key
         var metadata = await MetadataReader.read(url)
         var thumbnail: String?
@@ -212,7 +238,7 @@ final class LibraryStore {
     func refreshAvailability() async {
         let sources = (try? context.fetch(FetchDescriptor<LibrarySource>())) ?? []
         for source in sources {
-            if let root = roots[source.id], !isReachable(root) {
+            if let root = roots[source.id], !isReachable(source, at: root) {
                 markOffline(source)
             } else if offlineSources.contains(source.id), activate(source) != nil {
                 await rescan(source)
@@ -220,8 +246,14 @@ final class LibraryStore {
         }
     }
 
-    private func isReachable(_ url: URL) -> Bool {
-        (try? url.checkResourceIsReachable()) == true
+    /// A file source also counts as there when iCloud has evicted it and left a placeholder.
+    private func isReachable(_ source: LibrarySource, at url: URL) -> Bool {
+        LibraryScanner.isReachable(url) || (source.isFile && LibraryScanner.isReachable(LibraryScanner.placeholder(for: url)))
+    }
+
+    /// A file source's root is the video itself; a folder's items sit below it.
+    static func url(of item: MediaItem, root: URL) -> URL {
+        item.source?.isFile == true ? root : root.appending(path: item.relativePath)
     }
 
     private func markOffline(_ source: LibrarySource) {
@@ -236,7 +268,7 @@ final class LibraryStore {
 
     func fileURL(for item: MediaItem) -> URL? {
         guard let source = item.source, let root = activate(source) else { return nil }
-        return root.appending(path: item.relativePath)
+        return Self.url(of: item, root: root)
     }
 
     /// Downloads an evicted iCloud file and fills in metadata, so playback can start.
@@ -244,7 +276,7 @@ final class LibraryStore {
         guard let source = item.source, let root = activate(source) else {
             throw PlaybackError.sourceOffline
         }
-        var url = root.appending(path: item.relativePath)
+        var url = Self.url(of: item, root: root)
         if (try? url.resourceValues(forKeys: [.isUbiquitousItemKey]))?.isUbiquitousItem == true {
             try FileManager.default.startDownloadingUbiquitousItem(at: url)
             // Ends when the file is local, on a reported download error, or when the player is closed

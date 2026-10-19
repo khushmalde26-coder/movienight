@@ -94,4 +94,29 @@ actor LibraryScanner {
         }
         return results
     }
+
+    /// A single picked video (a file source). Its relative path is its name, so its key is stable.
+    /// Throws when neither the file nor its evicted-iCloud placeholder is there (unplugged drive).
+    func scan(file url: URL) throws -> ScannedFile {
+        let name = url.lastPathComponent
+        if !Self.isReachable(url) {
+            guard Self.isReachable(Self.placeholder(for: url)) else {
+                throw CocoaError(.fileReadNoSuchFile, userInfo: [NSURLErrorKey: url])
+            }
+            return ScannedFile(relativePath: name, collection: "", fileName: name, fileSize: 0, createdAt: nil, isLocal: false)
+        }
+        let values = try url.resourceValues(forKeys: Set(Self.keys))
+        let isLocal = values.isUbiquitousItem == true ? values.ubiquitousItemDownloadingStatus == .current : true
+        return ScannedFile(relativePath: name, collection: "", fileName: name, fileSize: Int64(values.fileSize ?? 0),
+                           createdAt: values.creationDate, isLocal: isLocal)
+    }
+
+    /// Where iCloud Drive leaves a stub for an evicted file: "Clip.mov" becomes ".Clip.mov.icloud".
+    nonisolated static func placeholder(for url: URL) -> URL {
+        url.deletingLastPathComponent().appending(path: "." + url.lastPathComponent + ".icloud")
+    }
+
+    nonisolated static func isReachable(_ url: URL) -> Bool {
+        (try? url.checkResourceIsReachable()) == true
+    }
 }

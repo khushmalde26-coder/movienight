@@ -25,7 +25,7 @@ struct HomeView: View {
                             .frame(maxWidth: .infinity, minHeight: Theme.heroHeight)
                     } else {
                         ContentUnavailableView("No videos yet", systemImage: "film.stack",
-                                               description: Text("The folders you added don't contain any videos."))
+                                               description: Text("Nothing you added contains a video yet."))
                             .frame(minHeight: Theme.heroHeight)
                     }
 
@@ -66,7 +66,7 @@ struct HomeView: View {
                     Button {
                         showingSources = true
                     } label: {
-                        Label("Folders", systemImage: "folder")
+                        Label("Library", systemImage: "folder")
                     }
                     Menu {
                         Section("Playback") {
