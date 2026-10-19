@@ -1,55 +1,57 @@
 import Foundation
 import SwiftData
 
-/// Watch state keyed by file name and size instead of path, so it survives a file moving to
-/// another folder or drive, or a folder being removed and added back. A renamed file starts fresh.
+/// Watch state kept for a video that left the library (moved, its folder removed, or deleted),
+/// so it comes back when a file with the same name reappears. A renamed file starts fresh.
 @Model
 final class WatchRecord {
-    /// WatchHistory.fingerprint(fileName:fileSize:)
-    @Attribute(.unique) var fingerprint: String
-    var fileName: String
+    /// Lowercased file name, the match key.
+    var nameKey: String
     var fileSize: Int64
-    var progressSeconds: Double = 0
+    var progressSeconds: Double
     var lastPlayedAt: Date?
-    var isFinished: Bool = false
+    var isFinished: Bool
+    var savedAt: Date
 
-    init(fileName: String, fileSize: Int64) {
-        self.fingerprint = WatchHistory.fingerprint(fileName: fileName, fileSize: fileSize)
-        self.fileName = fileName
-        self.fileSize = fileSize
+    init(from item: MediaItem) {
+        nameKey = WatchHistory.nameKey(item.fileName)
+        fileSize = item.fileSize
+        progressSeconds = item.progressSeconds
+        lastPlayedAt = item.lastPlayedAt
+        isFinished = item.isFinished
+        savedAt = .now
     }
 }
 
+/// Matching rules, kept pure so they're unit tested.
 enum WatchHistory {
-    static func fingerprint(fileName: String, fileSize: Int64) -> String {
-        fileName.lowercased() + "|" + String(fileSize)
+    /// Below this a size is an iCloud placeholder or otherwise not the real file size.
+    static let reliableSize: Int64 = 1_000_000
+
+    struct Candidate: Equatable {
+        var fileSize: Int64
+        var savedAt: Date
     }
 
-    /// Finds earlier watch state for a newly found file.
-    struct Index<Record> {
-        private var byFingerprint: [String: Record] = [:]
-        private var byName: [String: [Record]] = [:]
+    static func nameKey(_ fileName: String) -> String { fileName.lowercased() }
 
-        init(_ records: [Record], fileName: (Record) -> String, fileSize: (Record) -> Int64) {
-            for record in records {
-                byFingerprint[WatchHistory.fingerprint(fileName: fileName(record), fileSize: fileSize(record))] = record
-                byName[fileName(record).lowercased(), default: []].append(record)
-            }
+    static func hasHistory(progressSeconds: Double, lastPlayedAt: Date?, isFinished: Bool) -> Bool {
+        isFinished || progressSeconds > 0 || lastPlayedAt != nil
+    }
+
+    /// Index of the record to restore for a file with this name, or nil.
+    /// Camera names repeat (every phone has an IMG_0001.MOV), so when both sizes are real they must
+    /// match; moving a file never changes its size. The same size wins over a size we can't trust.
+    static func bestMatch(fileSize: Int64, in candidates: [Candidate]) -> Int? {
+        let sizeKnown = fileSize >= reliableSize
+        let usable = candidates.indices.filter { index in
+            let other = candidates[index].fileSize
+            return !(sizeKnown && other >= reliableSize && other != fileSize)
         }
-
-        /// Same name and size. When the size isn't known (0), the name alone, but only if exactly one
-        /// record has it: camera names like IMG_0001.MOV repeat across phones and years.
-        func match(fileName: String, fileSize: Int64) -> Record? {
-            if fileSize > 0 {
-                return byFingerprint[WatchHistory.fingerprint(fileName: fileName, fileSize: fileSize)]
-            }
-            let candidates = byName[fileName.lowercased()] ?? []
-            return candidates.count == 1 ? candidates[0] : nil
-        }
-
-        mutating func insert(_ record: Record, fileName: String, fileSize: Int64) {
-            byFingerprint[WatchHistory.fingerprint(fileName: fileName, fileSize: fileSize)] = record
-            byName[fileName.lowercased(), default: []].append(record)
+        return usable.max { a, b in
+            let aSame = candidates[a].fileSize == fileSize, bSame = candidates[b].fileSize == fileSize
+            if aSame != bSame { return bSame }
+            return candidates[a].savedAt < candidates[b].savedAt
         }
     }
 }

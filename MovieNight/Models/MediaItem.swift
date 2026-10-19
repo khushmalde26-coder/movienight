@@ -65,8 +65,11 @@ final class MediaItem {
 
     var needsMetadata: Bool { metadataVersion < MetadataReader.version }
 
-    /// Has a saved position worth going back to.
-    var canResume: Bool { progressSeconds > 5 && !isFinished }
+    /// Where playback starts: the saved position, or nil to start from the beginning.
+    func resumePosition(startFromBeginning: Bool = PlaybackPreferences.startFromBeginning) -> Double? {
+        guard !startFromBeginning, !isFinished, progressSeconds > 5 else { return nil }
+        return progressSeconds
+    }
 
     var remainingSeconds: Double? {
         guard let duration, progressSeconds > 0, !isFinished else { return nil }

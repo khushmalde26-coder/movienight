@@ -87,21 +87,11 @@ actor LibraryScanner {
                 relativePath: relativePath,
                 collection: relativeDir.split(separator: "/").first.map(String.init) ?? "",
                 fileName: name,
-                fileSize: isPlaceholder ? Self.placeholderSize(url) : Int64(values?.fileSize ?? 0),
+                fileSize: Int64(values?.fileSize ?? 0),
                 createdAt: values?.creationDate,
                 isLocal: isLocal
             ))
         }
         return results
-    }
-
-    /// An evicted iCloud file's ".Name.icloud" stub is a small plist that records the real size.
-    /// 0 when it can't be read.
-    static func placeholderSize(_ url: URL) -> Int64 {
-        guard let data = try? Data(contentsOf: url),
-              let plist = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
-              let size = plist["NSURLFileSizeKey"] as? NSNumber
-        else { return 0 }
-        return size.int64Value
     }
 }

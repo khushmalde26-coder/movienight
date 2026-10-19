@@ -7,14 +7,13 @@ struct RootView: View {
     @Query private var sources: [LibrarySource]
 
     var body: some View {
-        @Bindable var appModel = appModel
         ZStack {
             Theme.background.ignoresSafeArea()
 
             if sources.isEmpty {
                 WelcomeView()
             } else {
-                NavigationStack(path: $appModel.path) {
+                NavigationStack {
                     HomeView()
                         .navigationDestination(for: String.self) { key in
                             DetailView(itemKey: key)

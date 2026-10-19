@@ -6,6 +6,7 @@ struct DetailView: View {
     @Environment(AppModel.self) private var appModel
     @Environment(LibraryStore.self) private var store
     @Environment(\.modelContext) private var modelContext
+    @AppStorage(PlaybackPreferences.startFromBeginningKey) private var startFromBeginning = false
     @Query(sort: \MediaItem.addedAt, order: .reverse) private var siblings: [MediaItem]
 
     var body: some View {
@@ -35,6 +36,12 @@ struct DetailView: View {
                     }
 
                     HStack(spacing: 12) {
+                        if item.resumePosition(startFromBeginning: startFromBeginning) != nil {
+                            Button("Start Over") {
+                                store.setWatched(item, false)
+                                appModel.play(item)
+                            }
+                        }
                         Button(item.isFinished ? "Mark as Unwatched" : "Mark as Watched") {
                             store.setWatched(item, !item.isFinished)
                         }
@@ -58,11 +65,6 @@ struct DetailView: View {
         .scrollIndicators(.hidden)
         .ignoresSafeArea(edges: .top)
         .background(Theme.background)
-        .toolbar {
-            ToolbarItem(placement: .navigation) {
-                LogoButton()
-            }
-        }
     }
 }
 

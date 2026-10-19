@@ -4,8 +4,8 @@ import SwiftUI
 struct HomeView: View {
     @Environment(LibraryStore.self) private var store
     @Query(sort: \MediaItem.addedAt, order: .reverse) private var items: [MediaItem]
-    @Environment(AppModel.self) private var appModel
     @State private var showingSources = false
+    @AppStorage(PlaybackPreferences.startFromBeginningKey) private var startFromBeginning = false
 
     var body: some View {
         // Recomputed on change; cheap for libraries in the low thousands.
@@ -34,33 +34,48 @@ struct HomeView: View {
                     }
                 }
                 .padding(.bottom, 48)
-                .id(Self.top)
+                .id(Self.topID)
             }
-            .onChange(of: appModel.homeRequests) {
-                withAnimation { scroller.scrollTo(Self.top, anchor: .top) }
-            }
-        }
-        .scrollIndicators(.hidden)
-        .ignoresSafeArea(edges: .top)
-        .background(Theme.background)
-        .toolbar {
-            ToolbarItem(placement: .navigation) {
-                LogoButton()
-            }
-            ToolbarItemGroup(placement: .primaryAction) {
-                if store.isScanning {
-                    ProgressView().controlSize(.small)
+            .scrollIndicators(.hidden)
+            .ignoresSafeArea(edges: .top)
+            .background(Theme.background)
+            .toolbar {
+                ToolbarItem(placement: .navigation) {
+                    // Like a streaming app's logo: takes you back to the top of Home.
+                    Button {
+                        withAnimation(.easeInOut) { scroller.scrollTo(Self.topID, anchor: .top) }
+                    } label: {
+                        Image("LogoHorizontal")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(height: 22)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Movie Night, back to top")
                 }
-                Button {
-                    Task { await store.rescanAll() }
-                } label: {
-                    Label("Rescan", systemImage: "arrow.clockwise")
-                }
-                .disabled(store.isScanning)
-                Button {
-                    showingSources = true
-                } label: {
-                    Label("Folders", systemImage: "folder")
+                ToolbarItemGroup(placement: .primaryAction) {
+                    if store.isScanning {
+                        ProgressView().controlSize(.small)
+                    }
+                    Button {
+                        Task { await store.rescanAll() }
+                    } label: {
+                        Label("Rescan", systemImage: "arrow.clockwise")
+                    }
+                    .disabled(store.isScanning)
+                    Button {
+                        showingSources = true
+                    } label: {
+                        Label("Folders", systemImage: "folder")
+                    }
+                    Menu {
+                        Section("Playback") {
+                            Toggle("Always Watch from Beginning", isOn: $startFromBeginning)
+                        }
+                    } label: {
+                        Label("Settings", systemImage: "gearshape")
+                    }
+                    .menuIndicator(.hidden)
                 }
             }
         }
@@ -68,27 +83,10 @@ struct HomeView: View {
             SourcesView()
         }
     }
-
-    private static let top = "top"
 }
 
-/// The wordmark in the toolbar. Goes Home, like a streaming service's logo.
-struct LogoButton: View {
-    @Environment(AppModel.self) private var appModel
-
-    var body: some View {
-        Button {
-            appModel.goHome()
-        } label: {
-            Image("LogoHorizontal")
-                .resizable()
-                .scaledToFit()
-                .frame(height: 22)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Movie Night, Home")
-        .help("Home")
-    }
+extension HomeView {
+    fileprivate static let topID = "home-top"
 }
 
 struct HeroBanner: View {
@@ -126,9 +124,6 @@ struct HeroBanner: View {
                 MetadataLine(item: item)
                 HStack(spacing: 12) {
                     PlayButton(item: item)
-                    if item.canResume {
-                        StartOverButton(item: item)
-                    }
                     if showsMoreInfo {
                         NavigationLink(value: item.key) {
                             Label("More Info", systemImage: "info.circle")
@@ -181,12 +176,14 @@ struct PlayButton: View {
     let item: MediaItem
     @Environment(AppModel.self) private var appModel
     @Environment(LibraryStore.self) private var store
+    @AppStorage(PlaybackPreferences.startFromBeginningKey) private var startFromBeginning = false
 
     var body: some View {
+        let resuming = item.resumePosition(startFromBeginning: startFromBeginning) != nil
         Button {
             appModel.play(item)
         } label: {
-            Label(item.canResume ? "Resume" : "Play", systemImage: "play.fill")
+            Label(resuming ? "Resume" : "Play", systemImage: "play.fill")
                 .font(.headline)
                 .padding(.horizontal, 18)
                 .padding(.vertical, 8)
@@ -194,25 +191,6 @@ struct PlayButton: View {
         .buttonStyle(.borderedProminent)
         .tint(.white)
         .foregroundStyle(.black)
-        .disabled(!store.isAvailable(item) || item.isPlayable == false)
-    }
-}
-
-/// Plays from 0:00 without clearing the saved position, so closing early still leaves it in Continue Watching.
-struct StartOverButton: View {
-    let item: MediaItem
-    @Environment(AppModel.self) private var appModel
-    @Environment(LibraryStore.self) private var store
-
-    var body: some View {
-        Button {
-            appModel.play(item, fromStart: true)
-        } label: {
-            Label("From Beginning", systemImage: "arrow.counterclockwise")
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-        }
-        .buttonStyle(.bordered)
         .disabled(!store.isAvailable(item) || item.isPlayable == false)
     }
 }

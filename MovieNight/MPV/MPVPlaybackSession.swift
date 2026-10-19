@@ -14,13 +14,13 @@ final class MPVPlaybackSession {
 
     var state: MPVPlayerState { player.state }
 
-    init?(item: MediaItem, url: URL, store: LibraryStore, fromStart: Bool = false) {
+    init?(item: MediaItem, url: URL, store: LibraryStore) {
         guard let player = MPVPlayer(layer: renderView.metalLayer) else { return nil }
         self.player = player
         self.item = item
         self.store = store
 
-        let startAt = fromStart || !item.canResume ? 0 : item.progressSeconds
+        let startAt = item.resumePosition() ?? 0
         lastSaved = startAt
         player.state.onPositionChange = { [weak self] seconds in
             guard let self, abs(seconds - self.lastSaved) >= 5 else { return }
