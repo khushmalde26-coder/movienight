@@ -1,4 +1,5 @@
 import AVKit
+import SwiftData
 import SwiftUI
 
 /// Full-window player shown over the library. Uses the platform's native player chrome

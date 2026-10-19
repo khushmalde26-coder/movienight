@@ -24,9 +24,14 @@ targets:
         TARGETED_DEVICE_FAMILY: "1,2"
         "CODE_SIGN_ENTITLEMENTS[sdk=macosx*]": MovieNight/Resources/MovieNight-macOS.entitlements
         ENABLE_HARDENED_RUNTIME: YES
+    scheme:
+      testTargets: [MovieNightTests]
   MovieNightTests:
     type: bundle.unit-test
     supportedDestinations: [macOS, iOS]
     sources: [MovieNightTests]
     dependencies:
       - target: MovieNight
+    settings:
+      base:
+        "TEST_HOST[sdk=macosx*]": "$(BUILT_PRODUCTS_DIR)/MovieNight.app/Contents/MacOS/MovieNight"
