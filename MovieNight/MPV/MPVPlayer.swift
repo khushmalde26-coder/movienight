@@ -29,6 +29,8 @@ final class MPVPlayerState {
 final class MPVPlayer: @unchecked Sendable {
     private let mpv: MPVHandle
     private let eventQueue = DispatchQueue(label: "movienight.mpv.events", qos: .userInitiated)
+    /// Last time-pos sent to the main actor. mpv reports it every frame; the UI needs ~4 a second.
+    private var lastPublishedPosition = -1.0
     let state: MPVPlayerState
 
     @MainActor
@@ -108,6 +110,10 @@ final class MPVPlayer: @unchecked Sendable {
         switch (name, format) {
         case ("time-pos", MPV_FORMAT_DOUBLE), ("duration", MPV_FORMAT_DOUBLE):
             guard let value = data?.assumingMemoryBound(to: Double.self).pointee else { return }
+            if name == "time-pos" {
+                guard abs(value - lastPublishedPosition) >= 0.25 else { return }
+                lastPublishedPosition = value
+            }
             publish { state in
                 if name == "time-pos" {
                     state.position = value

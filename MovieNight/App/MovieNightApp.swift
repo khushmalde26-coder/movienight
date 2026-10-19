@@ -1,4 +1,5 @@
 import AVFoundation
+import Combine
 import SwiftData
 import SwiftUI
 
@@ -7,6 +8,7 @@ struct MovieNightApp: App {
     private let container: ModelContainer
     @State private var store: LibraryStore
     @State private var appModel = AppModel()
+    @Environment(\.scenePhase) private var scenePhase
 
     init() {
         do {
@@ -31,6 +33,17 @@ struct MovieNightApp: App {
                     store.activateAll()
                     await store.rescanAll()
                 }
+                .onChange(of: scenePhase) { _, phase in
+                    if phase == .active { Task { await store.refreshAvailability() } }
+                }
+                #if os(macOS)
+                .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didMountNotification)) { _ in
+                    Task { await store.refreshAvailability() }
+                }
+                .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didUnmountNotification)) { _ in
+                    Task { await store.refreshAvailability() }
+                }
+                #endif
         }
         .modelContainer(container)
         #if os(macOS)

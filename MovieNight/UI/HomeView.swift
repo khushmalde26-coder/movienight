@@ -72,7 +72,7 @@ struct HeroBanner: View {
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
-            ArtworkView(item: item, cornerRadius: 0)
+            ArtworkView(item: item, cornerRadius: 0, maxPixelSize: nil)
                 .frame(height: Theme.heroHeight)
                 .frame(maxWidth: .infinity)
                 .clipped()

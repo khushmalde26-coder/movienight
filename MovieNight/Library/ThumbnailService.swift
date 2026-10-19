@@ -50,9 +50,20 @@ enum ThumbnailService {
         return CGImageDestinationFinalize(destination) ? name : nil
     }
 
-    static func load(_ name: String) -> CGImage? {
+    /// Pass `maxPixelSize` for cards: decoding every 1280px thumbnail at full size costs ~3.5MB each.
+    static func load(_ name: String, maxPixelSize: Int? = nil) -> CGImage? {
         let url = directory.appending(path: name)
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
-        return CGImageSourceCreateImageAtIndex(source, 0, nil)
+        guard let maxPixelSize else { return CGImageSourceCreateImageAtIndex(source, 0, nil) }
+        let options = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
+        ] as CFDictionary
+        return CGImageSourceCreateThumbnailAtIndex(source, 0, options)
+    }
+
+    /// The system purges Caches under storage pressure, so artwork can vanish and must be remade.
+    static func exists(_ name: String) -> Bool {
+        FileManager.default.fileExists(atPath: directory.appending(path: name).path)
     }
 }

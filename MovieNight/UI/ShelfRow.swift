@@ -133,6 +133,8 @@ struct Badge: View {
 struct ArtworkView: View {
     let item: MediaItem
     var cornerRadius: CGFloat
+    /// Decode size limit; nil for the full-size hero.
+    var maxPixelSize: Int? = 640
     @State private var image: CGImage?
 
     var body: some View {
@@ -164,7 +166,8 @@ struct ArtworkView: View {
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .task(id: item.thumbnailFile) {
                 guard let name = item.thumbnailFile else { image = nil; return }
-                image = await Task.detached(priority: .utility) { ThumbnailService.load(name) }.value
+                let maxPixelSize = maxPixelSize
+                image = await Task.detached(priority: .utility) { ThumbnailService.load(name, maxPixelSize: maxPixelSize) }.value
             }
     }
 

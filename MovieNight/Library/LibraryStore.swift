@@ -94,6 +94,12 @@ final class LibraryStore {
 
     func rescan(_ source: LibrarySource) async {
         guard let root = activate(source), !scanningSources.contains(source.id) else { return }
+        // A drive unplugged since launch still has a cached root. Scanning it would find nothing and
+        // delete every item, so confirm it's really there first.
+        guard isReachable(root) else {
+            markOffline(source)
+            return
+        }
         scanningSources.insert(source.id)
         defer { scanningSources.remove(source.id) }
 
@@ -101,9 +107,12 @@ final class LibraryStore {
         do {
             files = try await scanner.scan(root: root)
         } catch {
+            if !isReachable(root) { markOffline(source) }
             lastError = "Couldn't read \(source.name): \(error.localizedDescription)"
             return
         }
+        // The source may have been removed while the scan ran.
+        guard !source.isDeleted else { return }
 
         var existing = Dictionary(uniqueKeysWithValues: source.items.map { ($0.key, $0) })
         var toEnrich: [MediaItem] = []
@@ -119,6 +128,10 @@ final class LibraryStore {
                                  fileName: file.fileName, fileSize: file.fileSize, fileCreatedAt: file.createdAt)
                 item.source = source
                 context.insert(item)
+            }
+            if let thumbnail = item.thumbnailFile, !ThumbnailService.exists(thumbnail) {
+                item.thumbnailFile = nil
+                item.metadataVersion = 0
             }
             if file.isLocal && item.needsMetadata {
                 toEnrich.append(item)
@@ -137,7 +150,7 @@ final class LibraryStore {
     /// Reads duration, embedded date and playability, then makes artwork. Saves in batches so
     /// shelves fill in progressively on a large first import.
     private func enrich(_ items: [MediaItem], root: URL) async {
-        for (index, item) in items.enumerated() {
+        for (index, item) in items.enumerated() where !item.isDeleted {
             await enrich(item, root: root)
             if index % 10 == 9 { try? context.save() }
         }
@@ -167,6 +180,8 @@ final class LibraryStore {
             }
             try? FileManager.default.removeItem(at: frameDirectory)
         }
+        // Reading can take seconds; the item or its folder may have been removed meanwhile.
+        guard !item.isDeleted else { return }
 
         item.duration = metadata.duration
         item.recordedAt = metadata.recordedAt
@@ -182,6 +197,28 @@ final class LibraryStore {
     }
 
     // MARK: Playback support
+
+    /// Called when drives mount or unmount (macOS) and when the app returns to the foreground:
+    /// drops roots that disappeared, picks up sources that came back, and scans those.
+    func refreshAvailability() async {
+        let sources = (try? context.fetch(FetchDescriptor<LibrarySource>())) ?? []
+        for source in sources {
+            if let root = roots[source.id], !isReachable(root) {
+                markOffline(source)
+            } else if offlineSources.contains(source.id), activate(source) != nil {
+                await rescan(source)
+            }
+        }
+    }
+
+    private func isReachable(_ url: URL) -> Bool {
+        (try? url.checkResourceIsReachable()) == true
+    }
+
+    private func markOffline(_ source: LibrarySource) {
+        roots.removeValue(forKey: source.id)?.stopAccessingSecurityScopedResource()
+        offlineSources.insert(source.id)
+    }
 
     func isAvailable(_ item: MediaItem) -> Bool {
         guard let id = item.source?.id else { return false }
@@ -201,10 +238,15 @@ final class LibraryStore {
         var url = root.appending(path: item.relativePath)
         if (try? url.resourceValues(forKeys: [.isUbiquitousItemKey]))?.isUbiquitousItem == true {
             try FileManager.default.startDownloadingUbiquitousItem(at: url)
+            // Ends when the file is local, on a reported download error, or when the player is closed
+            // (Task.sleep throws on cancellation).
             while true {
                 url.removeAllCachedResourceValues()
-                let status = try url.resourceValues(forKeys: [.ubiquitousItemDownloadingStatusKey]).ubiquitousItemDownloadingStatus
-                if status == .current { break }
+                let values = try url.resourceValues(forKeys: [
+                    .ubiquitousItemDownloadingStatusKey, .ubiquitousItemDownloadingErrorKey,
+                ])
+                if values.ubiquitousItemDownloadingStatus == .current { break }
+                if let error = values.ubiquitousItemDownloadingError { throw error }
                 try await Task.sleep(for: .milliseconds(500))
             }
         }

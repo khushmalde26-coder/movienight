@@ -39,6 +39,8 @@ actor LibraryScanner {
 
     /// Synchronous on purpose: DirectoryEnumerator cannot be iterated from an async context.
     func scan(root: URL) throws -> [ScannedFile] {
+        // Never report "no files" for a folder we can't reach: the caller would delete the library.
+        _ = try root.checkResourceIsReachable()
         let rootPath = root.resolvingSymlinksInPath().path
         guard let enumerator = FileManager.default.enumerator(
             at: root,
@@ -46,7 +48,9 @@ actor LibraryScanner {
             // Hidden files are not skipped because evicted iCloud files can appear as ".Name.mov.icloud".
             options: [.skipsPackageDescendants],
             errorHandler: { _, _ in true }
-        ) else { return [] }
+        ) else {
+            throw CocoaError(.fileReadNoSuchFile, userInfo: [NSURLErrorKey: root])
+        }
 
         var results: [ScannedFile] = []
         while let url = enumerator.nextObject() as? URL {
