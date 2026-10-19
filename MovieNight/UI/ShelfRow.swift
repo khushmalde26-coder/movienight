@@ -3,13 +3,72 @@ import SwiftUI
 struct ShelfRow: View {
     let title: String
     let items: [MediaItem]
+    /// Opened into a grid of every video in the row. Remembered per row title.
+    @State private var expanded = false
+    @SceneStorage("expandedShelves") private var expandedTitles = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            header
+            if expanded {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: Theme.cardWidth, maximum: Theme.cardWidth + 60), spacing: 20, alignment: .top)],
+                          alignment: .leading, spacing: 28) {
+                    ForEach(items) { item in
+                        NavigationLink(value: item.key) { PosterCard(item: item) }
+                            .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, Theme.gutter)
+                .padding(.vertical, 8)
+                .transition(.opacity)
+            } else {
+                reel
+            }
+        }
+        .onAppear { expanded = remembered.contains(title) }
+    }
+
+    /// The row's title, and the arrow that drops it down into a grid (or folds it back into a reel).
+    private var header: some View {
+        HStack(spacing: 10) {
             Text(title)
                 .font(.title2.weight(.semibold))
-                .padding(.horizontal, Theme.gutter)
+            if items.count > 1 {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.25)) { setExpanded(!expanded) }
+                } label: {
+                    HStack(spacing: 6) {
+                        Text("\(items.count)").font(.subheadline.weight(.semibold).monospacedDigit())
+                        Image(systemName: "chevron.down")
+                            .font(.subheadline.weight(.bold))
+                            .rotationEffect(.degrees(expanded ? 180 : 0))
+                    }
+                    .foregroundStyle(.mutedText)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(.white.opacity(0.1), in: Capsule())
+                    .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(expanded ? "Show \(title) as a row" : "Show all \(items.count) in \(title) as a grid")
+            }
+            Spacer()
+        }
+        .padding(.horizontal, Theme.gutter)
+    }
 
+    private var remembered: Set<String> {
+        Set(expandedTitles.split(separator: "\n").map(String.init))
+    }
+
+    private func setExpanded(_ value: Bool) {
+        expanded = value
+        var titles = remembered
+        if value { titles.insert(title) } else { titles.remove(title) }
+        expandedTitles = titles.sorted().joined(separator: "\n")
+    }
+
+    private var reel: some View {
             ScrollView(.horizontal) {
                 LazyHStack(alignment: .top, spacing: 16) {
                     ForEach(items) { item in
@@ -25,7 +84,6 @@ struct ShelfRow: View {
             }
             .scrollTargetBehavior(.viewAligned)
             .scrollIndicators(.hidden)
-        }
     }
 }
 

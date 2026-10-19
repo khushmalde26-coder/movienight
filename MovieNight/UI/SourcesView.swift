@@ -75,7 +75,9 @@ struct SourcesView: View {
                     Button("Remove from Library", role: .destructive) { store.remove(source) }
                 }
                 .swipeActions {
-                    Button("Remove", role: .destructive) { store.remove(source) }
+                    // The app-wide accent tint would otherwise repaint this (white on white with Silver).
+                    Button(role: .destructive) { store.remove(source) } label: { Label("Remove", systemImage: "trash") }
+                        .tint(.red)
                 }
         }
     }
