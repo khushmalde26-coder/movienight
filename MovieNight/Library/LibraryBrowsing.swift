@@ -14,6 +14,13 @@ struct BrowseEntry: Sendable, Hashable {
     var duration: Double?
     var progressFraction: Double
     var isFinished: Bool
+    var kind: ContentKind = .homeVideo
+    var show: String?
+    var season: Int?
+    var episode: Int?
+    var franchise: String?
+    var isUHD = false
+    var lastPlayedAt: Date?
 }
 
 enum LibrarySort: String, CaseIterable, Identifiable, Sendable {

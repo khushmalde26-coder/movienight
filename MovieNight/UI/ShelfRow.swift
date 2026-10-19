@@ -201,6 +201,12 @@ extension PosterCard {
     /// The length is already stamped on the artwork, so the line under the title says when or where.
     /// Camera-named clips are already titled by date, so they show their folder instead.
     fileprivate var subtitle: String? {
+        switch item.kind {
+        case .episode: return item.episodeLabel
+        case .film: return [item.releaseYear.map(String.init), item.franchise].compactMap { $0 }.first
+        case .extra: return item.showName
+        case .homeVideo: break
+        }
         let stem = (item.fileName as NSString).deletingPathExtension
         if DisplayTitle.isCameraName(stem), item.bestDate != nil {
             return item.collection.isEmpty ? nil : item.collection

@@ -23,6 +23,11 @@ struct Shelf: Identifiable, Sendable, Equatable {
         case collection(String)
         case year(Int)
         case undated
+        case nextUp
+        case unwatched
+        case uhd
+        case epics
+        case franchise(String)
     }
 
     var kind: Kind

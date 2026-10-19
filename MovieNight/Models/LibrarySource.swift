@@ -12,6 +12,15 @@ final class LibrarySource {
     var lastScannedAt: Date?
     /// true when the user picked one video rather than a folder. The bookmark then points at the file.
     var isFile: Bool = false
+    /// FolderContent: what the user said this folder holds.
+    var contentRaw: String = FolderContent.auto.rawValue
+    /// Whether TitleChek may look this library's films and shows up online.
+    var titleChek: Bool = false
+
+    var content: FolderContent {
+        get { FolderContent(rawValue: contentRaw) ?? .auto }
+        set { contentRaw = newValue.rawValue }
+    }
 
     @Relationship(deleteRule: .cascade, inverse: \MediaItem.source)
     var items: [MediaItem] = []

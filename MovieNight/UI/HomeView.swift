@@ -10,11 +10,12 @@ struct HomeView: View {
     var body: some View {
         // Recomputed on change; cheap for libraries in the low thousands.
         // TODO: cache keyed on a library revision if it shows up in Instruments.
-        let snapshots = items.map(\.snapshot)
+        let entries = items.map(\.browseEntry)
+        let homeVideos = items.filter { $0.kind == .homeVideo }.map(\.snapshot)
         let lookup = Dictionary(uniqueKeysWithValues: items.map { ($0.key, $0) })
-        // Home is curated; the rest of the rows live in Library and Collections.
-        let shelves = ShelfBuilder.homeShelves(ShelfBuilder.build(snapshots))
-        let hero = ShelfBuilder.heroKey(snapshots).flatMap { lookup[$0] }
+        // Home is curated; each kind has its own section for everything else.
+        let shelves = HomeShelves.build(entries, homeVideos: homeVideos)
+        let hero = HomeShelves.heroKey(entries, homeVideos: homeVideos).flatMap { lookup[$0] }
 
         ScrollViewReader { scroller in
             ScrollView {
@@ -181,7 +182,12 @@ struct MetadataLine: View {
 
     var body: some View {
         let length = Formatters.remaining(item.remainingSeconds) ?? Formatters.duration(item.duration)
-        let parts = [Formatters.date(item.bestDate), length].compactMap { $0 }
+        let when: String? = switch item.kind {
+        case .homeVideo: Formatters.date(item.bestDate)
+        case .episode: item.episodeLabel
+        case .film, .extra: item.releaseYear.map(String.init)
+        }
+        let parts = [when, length].compactMap { $0 }
         HStack(spacing: 10) {
             Text(parts.joined(separator: "  ·  "))
                 .font(.subheadline)

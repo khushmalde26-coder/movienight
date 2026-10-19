@@ -33,6 +33,15 @@ final class MediaItem {
     var chaptersData: Data?
     /// false for an iCloud file that isn't downloaded. Updated on every scan.
     var isLocal: Bool = true
+    // Set by ContentClassifier on every scan, from names and folders.
+    var kindRaw: String?
+    var cleanTitle: String?
+    var showName: String?
+    var season: Int?
+    var episodeNumber: Int?
+    var episodeTitle: String?
+    var releaseYear: Int?
+    var franchise: String?
     /// MetadataReader.version that last read this file; lower means re-read on next scan.
     var metadataVersion: Int = 0
 
@@ -54,7 +63,27 @@ final class MediaItem {
     }
 
     /// Best guess at when the clip was shot.
-    var bestDate: Date? { recordedAt ?? fileCreatedAt }
+    var kind: ContentKind {
+        kindRaw.flatMap(ContentKind.init(rawValue:))
+            ?? (DisplayTitle.isCameraName((fileName as NSString).deletingPathExtension) ? .homeVideo : .film)
+    }
+
+    /// Best guess at when a home video was shot. Films and episodes have none: their file dates are
+    /// when they were copied, and encoders stamp their own "creation" dates.
+    var bestDate: Date? { kind == .homeVideo ? recordedAt ?? fileCreatedAt : nil }
+
+    /// What to sort and group by in time: the shooting date for home videos, the release year otherwise.
+    var sortDate: Date? {
+        if kind == .homeVideo { return bestDate }
+        return releaseYear.flatMap { DateComponents(calendar: Calendar(identifier: .gregorian), year: $0, month: 1, day: 1).date }
+    }
+
+    /// "S4 E9" or "S4 E9 · The Wedding".
+    var episodeLabel: String? {
+        guard kind == .episode, let episodeNumber else { return nil }
+        let number = "S\(season ?? 1) E\(episodeNumber)"
+        return episodeTitle.map { "\(number) · \($0)" } ?? number
+    }
 
     var engine: PlaybackEngine? {
         get { engineRaw.flatMap(PlaybackEngine.init(rawValue:)) }
@@ -90,7 +119,13 @@ final class MediaItem {
         return max(duration - progressSeconds, 0)
     }
 
-    var displayTitle: String { DisplayTitle.make(fileName: fileName, recordedAt: bestDate) }
+    var displayTitle: String {
+        switch kind {
+        case .homeVideo: DisplayTitle.make(fileName: fileName, recordedAt: bestDate)
+        case .episode: [showName, episodeNumber.map { "S\(season ?? 1) E\($0)" }].compactMap { $0 }.joined(separator: " ")
+        case .film, .extra: cleanTitle ?? DisplayTitle.clean((fileName as NSString).deletingPathExtension)
+        }
+    }
 
     var progressFraction: Double {
         guard let duration, duration > 0 else { return 0 }
@@ -99,8 +134,10 @@ final class MediaItem {
 
     var browseEntry: BrowseEntry {
         BrowseEntry(key: key, title: displayTitle, fileName: fileName, collection: collection, sourceID: source?.id,
-                    sourceName: source?.name ?? "", isFileSource: source?.isFile ?? false, date: bestDate,
-                    addedAt: addedAt, duration: duration, progressFraction: progressFraction, isFinished: isFinished)
+                    sourceName: source?.name ?? "", isFileSource: source?.isFile ?? false, date: sortDate,
+                    addedAt: addedAt, duration: duration, progressFraction: progressFraction, isFinished: isFinished,
+                    kind: kind, show: showName, season: season, episode: episodeNumber, franchise: franchise,
+                    isUHD: quality?.resolutionBadge == "4K", lastPlayedAt: lastPlayedAt)
     }
 
     var healthInput: HealthInput {

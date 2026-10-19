@@ -24,8 +24,8 @@ final class LibraryStore {
 
     // MARK: Sources
 
-    func addFolder(_ url: URL) async {
-        await add(url, isFile: false)
+    func addFolder(_ url: URL, content: FolderContent = .auto, titleChek: Bool = false) async {
+        await add(url, isFile: false, content: content, titleChek: titleChek)
     }
 
     /// Individual videos. Each becomes its own source with its own bookmark, so it has the same
@@ -49,13 +49,15 @@ final class LibraryStore {
         }
     }
 
-    private func add(_ url: URL, isFile: Bool) async {
+    private func add(_ url: URL, isFile: Bool, content: FolderContent = .auto, titleChek: Bool = false) async {
         // Needed on iOS before bookmarking a picker URL; harmless on macOS.
         let didStart = url.startAccessingSecurityScopedResource()
         do {
             let bookmark = try SecurityScopedBookmark.make(for: url)
             let source = LibrarySource(name: FileManager.default.displayName(atPath: url.path), bookmark: bookmark,
                                        isFile: isFile)
+            source.content = content
+            source.titleChek = titleChek
             context.insert(source)
             try context.save()
             if didStart { url.stopAccessingSecurityScopedResource() }
@@ -178,9 +180,15 @@ final class LibraryStore {
             context.delete(gone)
         }
         source.lastScannedAt = .now
+        classify(source)
         try? context.save()
 
         await enrich(toEnrich, root: root)
+        // Lengths are known now, which settles short clips in folders left to guess.
+        if source.content == .auto, !toEnrich.isEmpty, !source.isDeleted {
+            classify(source)
+            try? context.save()
+        }
     }
 
     /// Reads duration, embedded date and playability, then makes artwork. Saves in batches so
@@ -327,6 +335,32 @@ final class LibraryStore {
         item.progressSeconds = 0
         if !watched { item.lastPlayedAt = nil }
         try? context.save()
+    }
+
+    // MARK: Films, TV and home videos
+
+    /// Changes what a folder is said to hold and re-sorts its videos straight away (no rescan).
+    func setContent(_ content: FolderContent, for source: LibrarySource) {
+        source.content = content
+        classify(source)
+        try? context.save()
+    }
+
+    private func classify(_ source: LibrarySource) {
+        let items = source.items.filter { !$0.isDeleted }
+        let inputs = items.map { ClassifierInput(key: $0.key, relativePath: $0.relativePath, fileName: $0.fileName, duration: $0.duration) }
+        let results = ContentClassifier.classify(inputs, folder: source.content)
+        for item in items {
+            guard let result = results[item.key] else { continue }
+            item.kindRaw = result.kind.rawValue
+            item.cleanTitle = result.title
+            item.showName = result.show
+            item.season = result.season
+            item.episodeNumber = result.episode
+            item.episodeTitle = result.episodeTitle
+            item.releaseYear = result.year
+            item.franchise = result.franchise
+        }
     }
 
     // MARK: Cleanup suggestions

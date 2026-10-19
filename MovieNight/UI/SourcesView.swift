@@ -71,6 +71,7 @@ struct SourcesView: View {
         ForEach(sources) { source in
             SourceRow(source: source)
                 .contextMenu {
+                    if !source.isFile { contentPicker(source) }
                     Button("Rescan") { Task { await store.rescan(source) } }
                     Button("Remove from Library", role: .destructive) { store.remove(source) }
                 }
@@ -79,6 +80,13 @@ struct SourcesView: View {
                     Button(role: .destructive) { store.remove(source) } label: { Label("Remove", systemImage: "trash") }
                         .tint(.red)
                 }
+        }
+    }
+
+    /// Change what a folder holds; its videos move between Films, TV and Home Videos right away.
+    private func contentPicker(_ source: LibrarySource) -> some View {
+        Picker("Contains", selection: Binding(get: { source.content }, set: { store.setContent($0, for: source) })) {
+            ForEach(FolderContent.allCases) { Text($0.title).tag($0) }
         }
     }
 }
@@ -102,6 +110,17 @@ private struct SourceRow: View {
             }
             Spacer()
             if scanning { ProgressView().controlSize(.small) }
+            if !source.isFile {
+                Menu {
+                    Picker("Contains", selection: Binding(get: { source.content }, set: { store.setContent($0, for: source) })) {
+                        ForEach(FolderContent.allCases) { Text($0.title).tag($0) }
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle").font(.title3)
+                }
+                .menuIndicator(.hidden)
+                .accessibilityLabel("What's in \(source.name)")
+            }
         }
         .padding(.vertical, 4)
     }
@@ -110,7 +129,7 @@ private struct SourceRow: View {
         switch (offline, source.isFile) {
         case (true, false): "Not connected. Videos stay in the library until it's back."
         case (true, true): "Not connected. It stays in the library until it's back."
-        case (false, false): "\(source.items.count) videos"
+        case (false, false): "\(source.items.count) videos · \(source.content.title)"
         case (false, true): source.items.first.map { Formatters.size($0.fileSize) } ?? "Video"
         }
     }

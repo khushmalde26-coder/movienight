@@ -26,11 +26,14 @@ final class AppModel {
 
 /// The app's main sections: a sidebar on iPad and Mac, tabs on narrow screens.
 enum AppTab: String, Hashable, CaseIterable, Sendable {
-    case home, library, collections, settings
+    case home, films, tvShows, homeVideos, library, collections, settings
 
     var title: String {
         switch self {
         case .home: "Home"
+        case .films: "Films"
+        case .tvShows: "TV Shows"
+        case .homeVideos: "Home Videos"
         case .library: "Library"
         case .collections: "Collections"
         case .settings: "Settings"
@@ -40,6 +43,9 @@ enum AppTab: String, Hashable, CaseIterable, Sendable {
     var systemImage: String {
         switch self {
         case .home: "house"
+        case .films: "film"
+        case .tvShows: "tv"
+        case .homeVideos: "video"
         case .library: "square.grid.2x2"
         case .collections: "rectangle.stack"
         case .settings: "gearshape"
