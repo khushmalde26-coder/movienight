@@ -120,7 +120,7 @@ final class LibraryStore {
                 item.source = source
                 context.insert(item)
             }
-            if file.isLocal && item.isPlayable == nil {
+            if file.isLocal && item.needsMetadata {
                 toEnrich.append(item)
             }
         }
@@ -144,16 +144,41 @@ final class LibraryStore {
         try? context.save()
     }
 
+    /// AVFoundation first (fast, and it means AVKit can play it); anything it can't open goes
+    /// through mpv/FFmpeg, which handles MKV, AVI, WMV, FLV, RealMedia, VOB and the rest.
     private func enrich(_ item: MediaItem, root: URL) async {
         let url = root.appending(path: item.relativePath)
         let key = item.key
-        let metadata = await MetadataReader.read(url)
+        var metadata = await MetadataReader.read(url)
+        var thumbnail: String?
+
+        if metadata.isPlayable, metadata.width != nil {
+            item.engine = .avKit
+            if item.thumbnailFile == nil {
+                thumbnail = await ThumbnailService.generate(for: url, key: key, duration: metadata.duration)
+            }
+        } else {
+            let frameDirectory = URL.temporaryDirectory.appending(path: "Probe-\(UUID().uuidString)")
+            let probe = await MPVProbe.probe(url, frameDirectory: frameDirectory)
+            metadata = probe.metadata
+            item.engine = metadata.isPlayable ? .mpv : nil
+            if item.thumbnailFile == nil, let frame = probe.frameFile {
+                thumbnail = ThumbnailService.store(frameAt: frame, key: key)
+            }
+            try? FileManager.default.removeItem(at: frameDirectory)
+        }
+
         item.duration = metadata.duration
         item.recordedAt = metadata.recordedAt
         item.isPlayable = metadata.isPlayable
-        if metadata.isPlayable, item.thumbnailFile == nil {
-            item.thumbnailFile = await ThumbnailService.generate(for: url, key: key, duration: metadata.duration)
-        }
+        item.width = metadata.width
+        item.height = metadata.height
+        item.frameRate = metadata.frameRate
+        item.videoCodec = metadata.videoCodec
+        item.isHDR = metadata.isHDR
+        item.audioChannels = metadata.audioChannels
+        item.metadataVersion = MetadataReader.version
+        if let thumbnail { item.thumbnailFile = thumbnail }
     }
 
     // MARK: Playback support
@@ -183,7 +208,7 @@ final class LibraryStore {
                 try await Task.sleep(for: .milliseconds(500))
             }
         }
-        if item.isPlayable == nil {
+        if item.needsMetadata {
             await enrich(item, root: root)
             try? context.save()
         }
@@ -219,7 +244,7 @@ enum PlaybackError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .sourceOffline: "The drive or folder this video lives on isn't connected."
-        case .unsupportedFormat: "This format needs the extended player, which isn't built yet."
+        case .unsupportedFormat: "This file couldn't be opened. It may be damaged, copy-protected, or not actually a video."
         }
     }
 }

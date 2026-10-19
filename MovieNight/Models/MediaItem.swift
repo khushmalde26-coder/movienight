@@ -15,12 +15,22 @@ final class MediaItem {
     var fileCreatedAt: Date?
     var addedAt: Date
 
-    // Filled in by MetadataReader once the bytes are local.
+    // Filled in by MetadataReader / MPVProbe once the bytes are local.
     var recordedAt: Date?
     var duration: Double?
-    /// nil until checked. false means AVFoundation cannot open it (MKV, AVI, odd codecs).
+    /// nil until checked. false means neither engine could open it (damaged, DRM, not really video).
     var isPlayable: Bool?
+    /// Which engine plays it. See PlaybackEngine.
+    var engineRaw: String?
     var thumbnailFile: String?
+    var width: Int?
+    var height: Int?
+    var frameRate: Double?
+    var videoCodec: String?
+    var isHDR: Bool = false
+    var audioChannels: Int?
+    /// MetadataReader.version that last read this file; lower means re-read on next scan.
+    var metadataVersion: Int = 0
 
     // Watch state.
     var progressSeconds: Double = 0
@@ -42,6 +52,24 @@ final class MediaItem {
     /// Best guess at when the clip was shot.
     var bestDate: Date? { recordedAt ?? fileCreatedAt }
 
+    var engine: PlaybackEngine? {
+        get { engineRaw.flatMap(PlaybackEngine.init(rawValue:)) }
+        set { engineRaw = newValue?.rawValue }
+    }
+
+    var quality: VideoQuality? {
+        guard let width, let height, width > 0, height > 0 else { return nil }
+        return VideoQuality(width: width, height: height, frameRate: frameRate, isHDR: isHDR,
+                            isDolbyVision: videoCodec == "Dolby Vision")
+    }
+
+    var needsMetadata: Bool { metadataVersion < MetadataReader.version }
+
+    var remainingSeconds: Double? {
+        guard let duration, progressSeconds > 0, !isFinished else { return nil }
+        return max(duration - progressSeconds, 0)
+    }
+
     var displayTitle: String { DisplayTitle.make(fileName: fileName, recordedAt: bestDate) }
 
     var progressFraction: Double {
@@ -56,6 +84,8 @@ final class MediaItem {
             date: bestDate,
             addedAt: addedAt,
             progressFraction: progressFraction,
+            duration: duration,
+            isVertical: quality?.isVertical ?? false,
             lastPlayedAt: lastPlayedAt,
             isFinished: isFinished
         )

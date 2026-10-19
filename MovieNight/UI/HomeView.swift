@@ -115,14 +115,34 @@ struct HeroBanner: View {
     }
 }
 
+/// Date · length · quality chips, as on a streaming service's title page.
 struct MetadataLine: View {
     let item: MediaItem
 
     var body: some View {
-        let parts = [Formatters.date(item.bestDate), Formatters.duration(item.duration)].compactMap { $0 }
-        Text(parts.joined(separator: "  ·  "))
-            .font(.subheadline)
-            .foregroundStyle(Theme.secondaryText)
+        let length = Formatters.remaining(item.remainingSeconds) ?? Formatters.duration(item.duration)
+        let parts = [Formatters.date(item.bestDate), length].compactMap { $0 }
+        HStack(spacing: 10) {
+            Text(parts.joined(separator: "  ·  "))
+                .font(.subheadline)
+                .foregroundStyle(Theme.secondaryText)
+            ForEach(item.quality?.badges ?? [], id: \.self) { QualityChip(text: $0) }
+        }
+    }
+}
+
+/// Outlined label like "4K" or "HDR".
+struct QualityChip: View {
+    let text: String
+    var compact = false
+
+    var body: some View {
+        Text(text)
+            .font(compact ? .system(size: 9, weight: .bold) : .caption2.weight(.bold))
+            .padding(.horizontal, compact ? 4 : 6)
+            .padding(.vertical, compact ? 1 : 2)
+            .foregroundStyle(Theme.accent.opacity(0.9))
+            .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(Theme.accent.opacity(0.5), lineWidth: 1))
     }
 }
 

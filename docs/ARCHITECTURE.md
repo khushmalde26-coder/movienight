@@ -18,7 +18,7 @@ A Netflix / Apple TV+ style browser and player for videos you own: home videos, 
 
 1. **This is a crowded space.** Infuse already does local files, SMB, SSDs, MKV and a polished UI on Mac, iPad and Apple TV. Plex and Jellyfin cover the server route. A generic "nicer VLC" loses to Infuse. The defensible angle is **home video specifically**: Infuse is built around TMDB metadata for films and TV and handles a folder of `IMG_*.MOV` poorly. So the product's value is in auto-titling, date and event grouping, "On this day", good frame selection and (later) people/place grouping with Vision and location metadata. The plan below leans that way.
 2. **Most family video is probably in iCloud Photos, not iCloud Drive.** Those are different stores. iCloud Drive folders work with this design; the Photos library needs PhotoKit, which is a separate source type. Worth confirming where your footage actually lives before building more source types.
-3. **"Netflix-style" means AVKit can't be the only player if the library has MKV.** AVFoundation does not open MKV, AVI, WMV, or many VP9/AV1/DTS/TrueHD streams. If owned films are mostly MKV rips, the fallback engine (below) moves from phase 3 to phase 1. Home videos from phones and cameras (MOV/MP4, H.264/HEVC) play fine.
+3. **Two players means two sets of behaviour.** AVKit files get PiP and AirPlay; mpv files get our own controls and no AirPlay. Worth unifying the controls later so the difference isn't visible.
 4. **iCloud Drive with "Optimise Storage" evicts files.** Scanning sees them, but thumbnails and duration need the bytes. The scanner records evicted files and only reads metadata from local ones; playback triggers a download first. Generating artwork for a large evicted library would download all of it, so that must stay opt-in.
 5. **External drives go away.** Bookmarks survive unplugging on macOS, and resolve again when the drive returns. The library marks the source offline and keeps its items (greyed out) instead of deleting them, which is what a naive rescan would do. iPadOS bookmarks to external drives are less reliable and need real-device testing.
 6. **Apple TV is the natural home for this UI, and tvOS has no file access.** A tvOS app would need the Mac to act as a server (Bonjour plus HTTP range streaming). Out of scope for v1, but it shapes the design: the library model should not assume local file URLs forever.
@@ -44,16 +44,24 @@ MovieNightTests/  Swift Testing tests for the pure logic (titles, shelves)
 5. `ShelfBuilder` is a pure function from item snapshots to shelves: Continue Watching, On This Day, Recently Added, one shelf per year, one per top-level folder. It is unit tested.
 6. `PlaybackSession` owns the `AVPlayer`, resumes from saved progress, saves progress every 5 seconds and marks an item finished past 95%.
 
-## Format support plan
+## Format support
 
-- **Now:** AVKit only. `MetadataReader` records `isPlayable`, and the detail view says plainly when a file needs the extended player.
-- **Next:** a `PlaybackEngine` protocol with two implementations: AVKit (default) and VLCKit or libmpv for everything else, chosen per file by `isPlayable`. VLCKit is LGPL, which is fine for an App Store app if it is dynamically linked and the licence terms are honoured; libmpv has a nicer rendering path on Metal but more integration work. A cheaper middle ground for MKV files that already contain H.264/HEVC + AAC is an on-the-fly remux, but that still needs FFmpeg, so it does not save much.
+Two engines, chosen per file when it is first scanned (`MediaItem.engine`):
+
+- **AVKit** for anything AVFoundation opens (MOV, MP4, M4V, most phone and camera footage). It brings PiP, AirPlay, system controls and the best battery life.
+- **mpv via MPVKit** (libmpv + FFmpeg, LGPL build) for everything else on the [video file format list](https://en.wikipedia.org/wiki/Video_file_format): MKV, WebM, AVI, WMV/ASF, FLV/F4V, VOB, MPEG-PS/TS, Ogg, RealMedia, MXF, NSV, RoQ, AMV and more. It decodes with VideoToolbox where it can and renders through Vulkan on Metal (MoltenVK). Its controls are our own SwiftUI overlay, with audio and subtitle track menus; external `.srt`/`.ass` files next to the video are picked up automatically.
+
+`MPVProbe` also gives non-AVFoundation files the same metadata as the rest (duration, resolution, frame rate, codec, HDR, audio channels, embedded date) and a thumbnail, using a headless mpv that decodes one frame to JPEG.
+
+Deliberately not supported: `.m4p`/`.f4p` (DRM, only Apple's and Adobe's own players can decrypt them), `.yuv` (raw frames with no header, so nothing knows their size), `.gif`/`.gifv`/`.mng` (images and web animations), `.f4a`/`.f4b` (audio only).
+
+Licensing: the LGPL MPVKit product is used, not MPVKit-GPL. Its xcframeworks are static, so an App Store release needs the LGPL relinking offer (bundled licence texts plus object files on request), and a libmpv build without LuaJIT, whose JIT is refused by the App Store and the hardened runtime. Until then `ENABLE_HARDENED_RUNTIME` is off.
 
 ## Roadmap
 
 1. **Phase 1 (this scaffold):** sources, scanning, artwork, shelves, hero, detail, AVKit playback with resume. macOS first.
 2. **Phase 2:** home-video smarts. Event grouping (clips within a few hours become one "event"), better frame picking (skip dark and blurry frames using luminance and Vision saliency), editable titles and collections, search.
-3. **Phase 3:** fallback player for MKV and friends; subtitles and audio track picker; chapter scrubbing thumbnails.
+3. **Phase 3:** chapter markers and scrubbing thumbnails; Lua-free libmpv build for distribution.
 4. **Phase 4:** PhotoKit source, iPad polish, then Mac-as-server for an Apple TV client.
 
 ## Building

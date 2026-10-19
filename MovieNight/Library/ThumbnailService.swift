@@ -27,6 +27,22 @@ enum ThumbnailService {
         let time = CMTime(seconds: (duration ?? 0) * 0.1, preferredTimescale: 600)
         guard let image = try? await generator.image(at: time).image else { return nil }
 
+        return write(image, key: key)
+    }
+
+    /// Downscales a frame grabbed by MPVProbe and stores it as the item's artwork.
+    static func store(frameAt url: URL, key: String) -> String? {
+        let options = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceThumbnailMaxPixelSize: 1280,
+        ] as CFDictionary
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+              let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options)
+        else { return nil }
+        return write(image, key: key)
+    }
+
+    private static func write(_ image: CGImage, key: String) -> String? {
         let name = fileName(for: key)
         let destinationURL = directory.appending(path: name)
         guard let destination = CGImageDestinationCreateWithURL(destinationURL as CFURL, UTType.jpeg.identifier as CFString, 1, nil) else { return nil }

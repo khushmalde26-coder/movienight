@@ -44,11 +44,22 @@ struct PosterCard: View {
                         ProgressBar(fraction: item.progressFraction).padding(10)
                     }
                 }
+                .overlay(alignment: .bottomTrailing) {
+                    // Duration stamp, like a video thumbnail on any streaming site.
+                    if item.progressFraction <= 0.02, let length = Formatters.clockLength(item.duration) {
+                        Text(length)
+                            .font(.caption2.weight(.semibold).monospacedDigit())
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 2)
+                            .background(.black.opacity(0.65), in: RoundedRectangle(cornerRadius: 4))
+                            .padding(8)
+                    }
+                }
                 .overlay(alignment: .topTrailing) {
                     if !available {
                         Badge(text: "Offline", systemImage: "externaldrive.badge.xmark")
                     } else if item.isPlayable == false {
-                        Badge(text: "Unsupported", systemImage: "exclamationmark.triangle")
+                        Badge(text: "Can't Open", systemImage: "exclamationmark.triangle")
                     } else if item.isFinished {
                         Badge(text: "Watched", systemImage: "checkmark")
                     }
@@ -59,16 +70,34 @@ struct PosterCard: View {
             Text(item.displayTitle)
                 .font(.callout.weight(.medium))
                 .lineLimit(1)
-            if let subtitle = Formatters.duration(item.duration) {
-                Text(subtitle)
-                    .font(.caption)
-                    .foregroundStyle(Theme.secondaryText)
+            HStack(spacing: 6) {
+                if let subtitle = Formatters.remaining(item.remainingSeconds) ?? subtitle {
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(Theme.secondaryText)
+                }
+                // Resolution is only worth a chip when it's notable; HD is the norm.
+                ForEach((item.quality?.badges ?? []).filter { $0 != "HD" && $0 != "Vertical" }, id: \.self) {
+                    QualityChip(text: $0, compact: true)
+                }
             }
         }
         .frame(width: Theme.cardWidth, alignment: .leading)
         .opacity(available ? 1 : 0.45)
         .onHover { hovering = $0 }
         .animation(.spring(duration: 0.25), value: hovering)
+    }
+}
+
+extension PosterCard {
+    /// The length is already stamped on the artwork, so the line under the title says when or where.
+    /// Camera-named clips are already titled by date, so they show their folder instead.
+    fileprivate var subtitle: String? {
+        let stem = (item.fileName as NSString).deletingPathExtension
+        if DisplayTitle.isCameraName(stem), item.bestDate != nil {
+            return item.collection.isEmpty ? nil : item.collection
+        }
+        return item.bestDate?.formatted(date: .abbreviated, time: .omitted)
     }
 }
 
@@ -110,7 +139,19 @@ struct ArtworkView: View {
         Rectangle()
             .fill(placeholder)
             .overlay {
-                if let image {
+                if let image, image.height > image.width {
+                    // Vertical phone video: fit it over a blurred fill instead of cropping it to a sliver.
+                    ZStack {
+                        Image(decorative: image, scale: 1)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .blur(radius: 24)
+                            .opacity(0.6)
+                        Image(decorative: image, scale: 1)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                    }
+                } else if let image {
                     Image(decorative: image, scale: 1)
                         .resizable()
                         .aspectRatio(contentMode: .fill)

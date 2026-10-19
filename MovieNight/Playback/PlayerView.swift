@@ -2,15 +2,17 @@ import AVKit
 import SwiftData
 import SwiftUI
 
-/// Full-window player shown over the library. Uses the platform's native player chrome
-/// so PiP, AirPlay, subtitles and HDR come for free.
+/// Full-window player shown over the library. Files AVFoundation can open use the platform's
+/// native player chrome (PiP, AirPlay, HDR for free); everything else goes through mpv.
 struct PlayerView: View {
     let itemKey: String
     @Environment(LibraryStore.self) private var store
     @Environment(AppModel.self) private var appModel
     @Environment(\.modelContext) private var modelContext
     @State private var session: PlaybackSession?
-        @State private var failure: String?
+    @State private var mpvSession: MPVPlaybackSession?
+    @State private var title = ""
+    @State private var failure: String?
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -18,6 +20,8 @@ struct PlayerView: View {
 
             if let session {
                 PlayerSurface(player: session.player).ignoresSafeArea()
+            } else if let mpvSession {
+                MPVPlayerView(session: mpvSession, title: title)
             } else if let failure {
                 ContentUnavailableView("Can't play this video", systemImage: "exclamationmark.triangle", description: Text(failure))
                     .foregroundStyle(.white)
@@ -38,7 +42,10 @@ struct PlayerView: View {
             .padding(20)
         }
         .task(id: itemKey) { await start() }
-        .onDisappear { session?.end() }
+        .onDisappear {
+            session?.end()
+            mpvSession?.end()
+        }
     }
 
     private func start() async {
@@ -56,7 +63,17 @@ struct PlayerView: View {
                 failure = PlaybackError.unsupportedFormat.localizedDescription
                 return
             }
-            session = PlaybackSession(item: item, url: url, store: store)
+            title = item.displayTitle
+            switch item.engine {
+            case .mpv:
+                guard let started = MPVPlaybackSession(item: item, url: url, store: store) else {
+                    failure = "The extended player couldn't start."
+                    return
+                }
+                mpvSession = started
+            case .avKit, nil:
+                session = PlaybackSession(item: item, url: url, store: store)
+            }
         } catch is CancellationError {
             return
         } catch {

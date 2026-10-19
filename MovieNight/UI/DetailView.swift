@@ -47,12 +47,9 @@ struct DetailView: View {
                     }
                     .buttonStyle(.bordered)
 
-                    Grid(alignment: .leading, horizontalSpacing: 24, verticalSpacing: 8) {
-                        InfoRow(label: "File", value: item.fileName)
-                        InfoRow(label: "Folder", value: item.collection.isEmpty ? nil : item.collection)
-                        InfoRow(label: "Library", value: item.source?.name)
-                        InfoRow(label: "Recorded", value: item.recordedAt?.formatted(date: .complete, time: .shortened))
-                        InfoRow(label: "Size", value: Formatters.size(item.fileSize))
+                    ViewThatFits(in: .horizontal) {
+                        HStack(alignment: .top, spacing: 64) { detailsGrid(item); technicalGrid(item) }
+                        VStack(alignment: .leading, spacing: 24) { detailsGrid(item); technicalGrid(item) }
                     }
                     .font(.callout)
                 }
@@ -67,6 +64,52 @@ struct DetailView: View {
         .scrollIndicators(.hidden)
         .ignoresSafeArea(edges: .top)
         .background(Theme.background)
+    }
+}
+
+extension DetailView {
+    private func detailsGrid(_ item: MediaItem) -> some View {
+        InfoSection(title: "Details") {
+            InfoRow(label: "Length", value: Formatters.duration(item.duration))
+            InfoRow(label: "Recorded", value: item.recordedAt?.formatted(date: .complete, time: .shortened))
+            InfoRow(label: "Folder", value: item.collection.isEmpty ? nil : item.collection)
+            InfoRow(label: "Library", value: item.source?.name)
+            InfoRow(label: "File", value: item.fileName)
+        }
+    }
+
+    private func technicalGrid(_ item: MediaItem) -> some View {
+        let quality = item.quality
+        let resolution = quality.map { "\($0.width) × \($0.height) (\($0.resolutionName))" }
+        let frameRate = item.frameRate.map { String(format: $0.rounded() == $0 ? "%.0f fps" : "%.2f fps", $0) }
+        let video = [item.videoCodec, item.isHDR && item.videoCodec != "Dolby Vision" ? "HDR" : nil, quality?.isVertical == true ? "Vertical" : nil]
+            .compactMap { $0 }.joined(separator: ", ")
+        let player: String? = switch item.engine {
+        case .avKit: "Built-in (AVKit)"
+        case .mpv: "Extended (FFmpeg)"
+        case nil: nil
+        }
+        return InfoSection(title: "Technical") {
+            InfoRow(label: "Resolution", value: resolution)
+            InfoRow(label: "Frame rate", value: frameRate)
+            InfoRow(label: "Video", value: video.isEmpty ? nil : video)
+            InfoRow(label: "Audio", value: VideoQuality.audioLabel(channels: item.audioChannels))
+            InfoRow(label: "Bitrate", value: VideoQuality.bitrateLabel(fileSize: item.fileSize, duration: item.duration))
+            InfoRow(label: "Size", value: Formatters.size(item.fileSize))
+            InfoRow(label: "Player", value: player)
+        }
+    }
+}
+
+private struct InfoSection<Content: View>: View {
+    let title: String
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title).font(.headline)
+            Grid(alignment: .leading, horizontalSpacing: 24, verticalSpacing: 8) { content }
+        }
     }
 }
 

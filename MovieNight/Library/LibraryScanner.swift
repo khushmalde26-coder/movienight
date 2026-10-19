@@ -13,8 +13,23 @@ struct ScannedFile: Sendable {
 /// Walks a source folder off the main thread. Reads only file-system metadata, never file contents,
 /// so it is cheap on evicted iCloud files and slow drives.
 actor LibraryScanner {
+    /// Every container on https://en.wikipedia.org/wiki/Video_file_format that can hold playable video,
+    /// plus common extras (divx, xvid, mpe). Left out on purpose: .m4p/.f4p (DRM, no third-party
+    /// player can decrypt them), .yuv (raw frames with no header, so size and format are unknown),
+    /// .gif/.gifv/.mng (images and web animations) and .f4a/.f4b (audio only).
     static let videoExtensions: Set<String> = [
-        "mov", "mp4", "m4v", "mkv", "avi", "webm", "mts", "m2ts", "3gp", "wmv", "mpg", "mpeg", "ts",
+        // Apple / MPEG-4 family
+        "mov", "qt", "mp4", "m4v", "3gp", "3g2",
+        // Matroska / WebM / Ogg
+        "mkv", "mk3d", "webm", "ogv", "ogg",
+        // MPEG program and transport streams, DVD and camcorder
+        "mpg", "mpeg", "mpe", "mpv", "mp2", "m2v", "vob", "ts", "mts", "m2ts",
+        // Windows
+        "avi", "divx", "xvid", "wmv", "asf",
+        // Flash
+        "flv", "f4v",
+        // Professional and older formats
+        "mxf", "rm", "rmvb", "viv", "nsv", "roq", "svi", "amv", "drc",
     ]
 
     private static let keys: [URLResourceKey] = [

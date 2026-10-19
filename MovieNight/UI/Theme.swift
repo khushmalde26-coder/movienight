@@ -18,10 +18,35 @@ enum Theme {
 }
 
 enum Formatters {
+    /// "1h 32m", "3m 12s", "45s": how long something is.
     static func duration(_ seconds: Double?) -> String? {
         guard let seconds, seconds.isFinite, seconds > 0 else { return nil }
-        if seconds < 60 { return "\(Int(seconds.rounded()))s" }
-        return Duration.seconds(seconds).formatted(.units(allowed: [.hours, .minutes], width: .abbreviated))
+        let total = Int(seconds.rounded())
+        let hours = total / 3600, minutes = (total % 3600) / 60, secs = total % 60
+        if hours > 0 { return minutes > 0 ? "\(hours)h \(minutes)m" : "\(hours)h" }
+        if minutes > 0 { return secs > 0 && minutes < 10 ? "\(minutes)m \(secs)s" : "\(minutes)m" }
+        return "\(secs)s"
+    }
+
+    /// "32m left"
+    static func remaining(_ seconds: Double?) -> String? {
+        guard let seconds, seconds >= 30 else { return nil }
+        return duration(seconds).map { "\($0) left" }
+    }
+
+    /// Clock-style length for the stamp on a card ("12:04"), nil when unknown.
+    static func clockLength(_ seconds: Double?) -> String? {
+        guard let seconds, seconds.isFinite, seconds > 0 else { return nil }
+        return clock(seconds.rounded())
+    }
+
+    /// "1:02:03" or "4:05": for the player's time labels.
+    static func clock(_ seconds: Double) -> String {
+        let total = Int(max(seconds, 0))
+        let hours = total / 3600, minutes = (total % 3600) / 60, secs = total % 60
+        return hours > 0
+            ? String(format: "%d:%02d:%02d", hours, minutes, secs)
+            : String(format: "%d:%02d", minutes, secs)
     }
 
     static func date(_ date: Date?) -> String? {

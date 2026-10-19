@@ -1,9 +1,8 @@
 import AVFoundation
 import Observation
 
-/// One play-through of one item: owns the AVPlayer, resumes, and records progress.
-/// TODO(phase 3): put AVPlayer behind a PlaybackEngine protocol with a VLCKit/libmpv
-/// implementation for files where `isPlayable == false`.
+/// One play-through of one item on AVKit: owns the AVPlayer, resumes, and records progress.
+/// MPVPlaybackSession is the equivalent for files AVFoundation can't open.
 @MainActor
 @Observable
 final class PlaybackSession {
