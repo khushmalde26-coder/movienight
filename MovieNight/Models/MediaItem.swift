@@ -80,6 +80,11 @@ final class MediaItem {
         return progressSeconds
     }
 
+    /// Shown in the Continue Watching row: started, not finished, and not dismissed from the row.
+    var isInContinueWatching: Bool {
+        !isFinished && progressFraction > 0.02 && lastPlayedAt != nil
+    }
+
     var remainingSeconds: Double? {
         guard let duration, progressSeconds > 0, !isFinished else { return nil }
         return max(duration - progressSeconds, 0)

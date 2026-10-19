@@ -13,6 +13,7 @@ final class MPVPlaybackSession: PlayerEngine {
     private let store: LibraryStore
     @ObservationIgnored private var lastSaved: Double = 0
     @ObservationIgnored private var pictureInPicture: MPVPictureInPicture?
+    @ObservationIgnored private let url: URL
 
     var state: PlayerState { player.state }
     var surface: AnyView { AnyView(MPVSurface(view: renderView)) }
@@ -24,6 +25,7 @@ final class MPVPlaybackSession: PlayerEngine {
         self.player = player
         self.item = item
         self.store = store
+        self.url = url
 
         let startAt = startAt ?? 0
         lastSaved = startAt
@@ -89,6 +91,10 @@ final class MPVPlaybackSession: PlayerEngine {
         pictureInPicture?.isAppInBackground = backgrounded
         if pictureInPicture?.isActive == true { return }
         player.setVideoEnabled(!backgrounded)
+    }
+
+    func makeScrubThumbnailer() -> (any ScrubThumbnailer)? {
+        MPVScrubThumbnailer(url: url)
     }
 
     /// Call when the player closes.

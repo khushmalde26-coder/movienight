@@ -90,6 +90,7 @@ struct ShelfRow: View {
 struct PosterCard: View {
     let item: MediaItem
     @Environment(LibraryStore.self) private var store
+    @Environment(AppModel.self) private var appModel
     @Environment(\.highContrast) private var highContrast
     @State private var hovering = false
 
@@ -152,12 +153,35 @@ struct PosterCard: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityDescription(available: available))
         .accessibilityHint("Shows details")
+        .contextMenu { menu }
         .onHover { hovering = $0 }
         .animation(.spring(duration: 0.25), value: hovering)
     }
 }
 
 extension PosterCard {
+    /// Long-press (or right-click) actions, so common chores don't need the details page.
+    @ViewBuilder fileprivate var menu: some View {
+        let resume = item.resumePosition()
+        if store.isAvailable(item) && item.isPlayable != false {
+            Button { appModel.play(item) } label: {
+                Label(resume.map { "Resume from \(Formatters.clock($0))" } ?? "Play", systemImage: "play.fill")
+            }
+            if resume != nil {
+                Button { appModel.play(item, from: 0) } label: { Label("Start Over", systemImage: "arrow.counterclockwise") }
+            }
+        }
+        if item.isInContinueWatching {
+            Button { store.removeFromContinueWatching(item) } label: {
+                Label("Remove from Continue Watching", systemImage: "eye.slash")
+            }
+        }
+        Button { store.setWatched(item, !item.isFinished) } label: {
+            Label(item.isFinished ? "Mark as Unwatched" : "Mark as Watched",
+                  systemImage: item.isFinished ? "circle" : "checkmark.circle")
+        }
+    }
+
     fileprivate func accessibilityDescription(available: Bool) -> String {
         var parts = [item.displayTitle]
         if let date = item.bestDate, !DisplayTitle.isCameraName((item.fileName as NSString).deletingPathExtension) {

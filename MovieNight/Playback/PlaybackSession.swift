@@ -16,6 +16,7 @@ final class PlaybackSession: PlayerEngine {
     @ObservationIgnored private let item: MediaItem
     @ObservationIgnored private let store: LibraryStore
     @ObservationIgnored private let playerItem: AVPlayerItem
+    @ObservationIgnored private let asset: AVURLAsset
     @ObservationIgnored private let sound: SoundProcessor
     @ObservationIgnored private var timeObserver: Any?
     @ObservationIgnored private var observations: [NSKeyValueObservation] = []
@@ -43,6 +44,7 @@ final class PlaybackSession: PlayerEngine {
         self.item = item
         self.store = store
         let asset = AVURLAsset(url: url)
+        self.asset = asset
         playerItem = AVPlayerItem(asset: asset)
         player = AVPlayer(playerItem: playerItem)
         player.allowsExternalPlayback = true
@@ -258,6 +260,10 @@ final class PlaybackSession: PlayerEngine {
         } else {
             layerView.playerLayer.player = player
         }
+    }
+
+    func makeScrubThumbnailer() -> (any ScrubThumbnailer)? {
+        AssetScrubThumbnailer(asset: asset)
     }
 
     /// Call when the player closes. Not done in deinit because deinit isn't main-actor isolated.

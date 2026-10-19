@@ -314,6 +314,13 @@ final class LibraryStore {
         try? context.save()
     }
 
+    /// Takes a video off Continue Watching but keeps its place, so Resume still works.
+    /// Playing it again puts it back.
+    func removeFromContinueWatching(_ item: MediaItem) {
+        item.lastPlayedAt = nil
+        try? context.save()
+    }
+
     func setWatched(_ item: MediaItem, _ watched: Bool) {
         item.isFinished = watched
         item.progressSeconds = 0

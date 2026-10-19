@@ -57,6 +57,8 @@ protocol PlayerEngine: AnyObject {
     func setBackgrounded(_ backgrounded: Bool)
     /// Saves progress and releases the player. Call once, when the player closes.
     func end()
+    /// A frame source for the scrubbing preview, separate from playback so it never disturbs it.
+    func makeScrubThumbnailer() -> (any ScrubThumbnailer)?
 }
 
 extension PlayerEngine {

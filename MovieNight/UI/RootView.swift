@@ -8,6 +8,8 @@ struct RootView: View {
     @AppStorage(AccentChoice.key) private var accent = AccentChoice.silver
     @AppStorage(AccessibilityPreferences.highContrastKey) private var highContrast = false
     @Environment(\.colorSchemeContrast) private var systemContrast
+    /// The startup animation, shown once each time the app launches (not when it returns from the background).
+    @State private var showingStartup = !StartupPreferences.skip
 
     var body: some View {
         ZStack {
@@ -23,6 +25,14 @@ struct RootView: View {
                 PlayerView(itemKey: key)
                     .transition(.opacity)
                     .zIndex(1)
+            }
+
+            if showingStartup {
+                StartupView {
+                    withAnimation(.easeInOut(duration: 0.5)) { showingStartup = false }
+                }
+                .transition(.opacity)
+                .zIndex(2)
             }
         }
         .animation(.easeInOut(duration: 0.25), value: appModel.nowPlayingKey)
@@ -163,5 +173,16 @@ private struct LibraryImporter: ViewModifier {
             .onChange(of: kind) { _, new in
                 if let new { lastKind = new }
             }
+    }
+}
+
+enum StartupPreferences {
+    /// DEBUG builds can pass `-SkipStartup YES` (for screenshots and UI checks).
+    static var skip: Bool {
+        #if DEBUG
+        UserDefaults.standard.bool(forKey: "SkipStartup")
+        #else
+        false
+        #endif
     }
 }

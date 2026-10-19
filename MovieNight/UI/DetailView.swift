@@ -40,8 +40,13 @@ struct DetailView: View {
                             .foregroundStyle(.orange)
                     }
 
-                    Button(item.isFinished ? "Mark as Unwatched" : "Mark as Watched") {
-                        store.setWatched(item, !item.isFinished)
+                    HStack(spacing: 12) {
+                        Button(item.isFinished ? "Mark as Unwatched" : "Mark as Watched") {
+                            store.setWatched(item, !item.isFinished)
+                        }
+                        if item.isInContinueWatching {
+                            Button("Remove from Continue Watching") { store.removeFromContinueWatching(item) }
+                        }
                     }
                     .buttonStyle(.bordered)
 

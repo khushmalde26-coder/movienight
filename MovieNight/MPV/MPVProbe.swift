@@ -66,8 +66,16 @@ enum MPVProbe {
         return Result(metadata: metadata, frameFile: frame)
     }
 
-    /// The frame on screen, before scaling and subtitles, as BGR0 pixels.
     private static func writeFrame(_ mpv: MPVHandle, to url: URL) -> URL? {
+        guard let image = rawFrame(mpv),
+              let destination = CGImageDestinationCreateWithURL(url as CFURL, UTType.jpeg.identifier as CFString, 1, nil)
+        else { return nil }
+        CGImageDestinationAddImage(destination, image, [kCGImageDestinationLossyCompressionQuality: 0.85] as CFDictionary)
+        return CGImageDestinationFinalize(destination) ? url : nil
+    }
+
+    /// The current frame after video filters but before subtitles and OSD, from BGR0 pixels.
+    static func rawFrame(_ mpv: MPVHandle) -> CGImage? {
         let command = ["screenshot-raw", "video"]
         var args: [UnsafePointer<CChar>?] = command.map { UnsafePointer(strdup($0)) } + [nil]
         defer { for arg in args { free(UnsafeMutablePointer(mutating: arg)) } }
@@ -98,11 +106,9 @@ enum MPVProbe {
                 width: width, height: height, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: stride,
                 space: CGColorSpace(name: CGColorSpace.sRGB)!,
                 bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue),
-                provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent),
-              let destination = CGImageDestinationCreateWithURL(url as CFURL, UTType.jpeg.identifier as CFString, 1, nil)
+                provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent)
         else { return nil }
-        CGImageDestinationAddImage(destination, image, [kCGImageDestinationLossyCompressionQuality: 0.85] as CFDictionary)
-        return CGImageDestinationFinalize(destination) ? url : nil
+        return image
     }
 
     private static func read(_ mpv: MPVHandle, into metadata: inout VideoMetadata) {

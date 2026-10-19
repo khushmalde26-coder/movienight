@@ -21,6 +21,9 @@ struct PlayerView: View {
     @State private var gesture: GestureFeedback?
     @State private var showingSubtitleSettings = false
     @State private var nowPlaying = NowPlaying()
+    @State private var thumbnailer: (any ScrubThumbnailer)?
+    @State private var preview: CGImage?
+    @State private var previewTask: Task<Void, Never>?
     @FocusState private var focused: Bool
 
     @AppStorage(PlaybackPreferences.dialogueBoostKey) private var dialogueBoost = false
@@ -53,7 +56,7 @@ struct PlayerView: View {
                 PlayerControls(
                     engine: engine, title: title, chapters: chapters,
                     largeControls: largeControls, highContrast: highContrast,
-                    scrubPosition: $scrubPosition, showingSubtitleSettings: $showingSubtitleSettings,
+                    scrubPosition: $scrubPosition, preview: preview, showingSubtitleSettings: $showingSubtitleSettings,
                     dialogueBoost: $dialogueBoost, nightMode: $nightMode,
                     onClose: close, onSaveMoment: saveMoment, onInteraction: { showControls(true) }
                 )
@@ -74,7 +77,7 @@ struct PlayerView: View {
                     .padding(20)
             }
 
-            if let gesture { GestureHUD(feedback: gesture) }
+            if let gesture { GestureHUD(feedback: gesture, preview: preview) }
             if let toast { ToastView(text: toast) }
         }
         .foregroundStyle(.white)
@@ -94,9 +97,12 @@ struct PlayerView: View {
         .onChange(of: subtitleStyle) { _, style in engine?.applySubtitleStyle(style) }
         .onChange(of: scenePhase) { _, phase in engine?.setBackgrounded(phase == .background) }
         .onChange(of: engine?.state.isPaused) { showControls(true) }
+        .onChange(of: scrubPosition) { _, position in requestPreview(at: position) }
         .onAppear { focused = true }
         .onDisappear {
             nowPlaying.stop()
+            previewTask?.cancel()
+            thumbnailer?.close()
             engine?.end()
         }
         .sheet(isPresented: $showingSubtitleSettings) {
@@ -136,6 +142,7 @@ struct PlayerView: View {
                 return
             }
             engine = started
+            thumbnailer = started.makeScrubThumbnailer()
             let thumbnail = item.thumbnailFile
             let artwork = await Task.detached(priority: .utility) { thumbnail.flatMap { ThumbnailService.load($0) } }.value
             nowPlaying.start(engine: started, artwork: artwork)
@@ -144,6 +151,22 @@ struct PlayerView: View {
             return
         } catch {
             failure = error.localizedDescription
+        }
+    }
+
+    /// Fetches the frame under the scrubber, a beat after it stops moving fast, newest request wins.
+    private func requestPreview(at position: Double?) {
+        previewTask?.cancel()
+        guard let position, let thumbnailer else {
+            preview = nil
+            return
+        }
+        previewTask = Task {
+            try? await Task.sleep(for: .milliseconds(40))
+            guard !Task.isCancelled else { return }
+            let image = await thumbnailer.frame(at: position)
+            guard !Task.isCancelled, scrubPosition != nil, let image else { return }
+            preview = image
         }
     }
 
@@ -321,6 +344,8 @@ struct PlayerControls: View {
     let largeControls: Bool
     let highContrast: Bool
     @Binding var scrubPosition: Double?
+    /// The frame under the scrubber, shown above it while dragging.
+    let preview: CGImage?
     @Binding var showingSubtitleSettings: Bool
     @Binding var dialogueBoost: Bool
     @Binding var nightMode: Bool
@@ -418,6 +443,17 @@ struct PlayerControls: View {
             )
             .accessibilityLabel("Position")
             .accessibilityValue("\(Formatters.clock(shown)) of \(Formatters.clock(duration))")
+            .overlay(alignment: .bottomLeading) {
+                if let scrubPosition {
+                    GeometryReader { proxy in
+                        let width: CGFloat = largeControls ? 280 : 220
+                        let x = proxy.size.width * min(max(scrubPosition / duration, 0), 1)
+                        ScrubPreview(image: preview, time: scrubPosition, width: width)
+                            .offset(x: min(max(x - width / 2, 0), max(proxy.size.width - width, 0)), y: -(width * 9 / 16) - 44)
+                    }
+                    .allowsHitTesting(false)
+                }
+            }
             HStack {
                 Text(Formatters.clock(shown))
                 Spacer()
@@ -587,10 +623,49 @@ enum GestureFeedback: Equatable {
     case scrub(target: Double, duration: Double)
 }
 
-private struct GestureHUD: View {
-    let feedback: GestureFeedback
+/// The frame you're scrubbing to, with its time, in a small card.
+struct ScrubPreview: View {
+    let image: CGImage?
+    let time: Double
+    var width: CGFloat = 220
 
     var body: some View {
+        VStack(spacing: 6) {
+            ZStack {
+                Color.black
+                if let image {
+                    Image(decorative: image, scale: 1).resizable().aspectRatio(contentMode: .fit)
+                } else {
+                    ProgressView().tint(.white)
+                }
+            }
+            .frame(width: width, height: width * 9 / 16)
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(.white.opacity(0.8), lineWidth: 2))
+            .shadow(color: .black.opacity(0.6), radius: 10, y: 4)
+            Text(Formatters.clock(time))
+                .font(.callout.weight(.semibold).monospacedDigit())
+                .padding(.horizontal, 8).padding(.vertical, 3)
+                .background(.black.opacity(0.7), in: Capsule())
+        }
+        .accessibilityHidden(true)
+    }
+}
+
+private struct GestureHUD: View {
+    let feedback: GestureFeedback
+    var preview: CGImage?
+
+    var body: some View {
+        if case .scrub(let target, _) = feedback {
+            // Swiping to scrub: the frame itself is the feedback.
+            ScrubPreview(image: preview, time: target, width: 300).transition(.opacity)
+        } else {
+            capsule
+        }
+    }
+
+    private var capsule: some View {
         Group {
             switch feedback {
             case .skip(let seconds):
