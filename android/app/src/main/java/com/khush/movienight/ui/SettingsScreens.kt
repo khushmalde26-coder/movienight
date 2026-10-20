@@ -112,6 +112,14 @@ fun SettingsScreen(navigator: Navigator) {
                 modifier = Modifier.focusCard(RoundedCornerShape(12.dp)) { app.preferences.setStartFromBeginning(!startFromBeginning) },
             )
         }
+        item { SectionHeader("Sound") }
+        item { SoundControls() }
+        item {
+            Text("Applies whenever Movie Night plays the sound itself. Surround sound sent straight to a soundbar or receiver plays as it is.",
+                style = MaterialTheme.typography.bodySmall, color = Palette.muted,
+                modifier = Modifier.padding(horizontal = LocalMetrics.current.gutter, vertical = 4.dp))
+        }
+        item { SectionHeader("Startup") }
         item {
             ListItem(
                 headlineContent = { Text("Play Intro at Launch") }, trailingContent = { Switch(playIntro, null) }, colors = listColors,

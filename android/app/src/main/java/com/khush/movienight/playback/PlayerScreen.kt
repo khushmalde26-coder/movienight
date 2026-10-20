@@ -48,7 +48,13 @@ import androidx.media3.exoplayer.mediacodec.MediaCodecUtil
 import androidx.media3.ui.PlayerView
 import com.khush.movienight.core.ContentKind
 import com.khush.movienight.core.TVLibrary
+import androidx.compose.foundation.layout.Row
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.GraphicEq
+import com.khush.movienight.ui.ActionButton
 import com.khush.movienight.ui.Navigator
+import com.khush.movienight.ui.SoundControls
+import com.khush.movienight.ui.isActive
 import com.khush.movienight.ui.Palette
 import com.khush.movienight.ui.rememberApp
 import kotlinx.coroutines.delay
@@ -70,6 +76,8 @@ fun PlayerScreen(key: String, start: Double?, navigator: Navigator) {
     val item = remember(key, items == null) { items?.firstOrNull { it.key == key } } ?: return
     var error by remember { mutableStateOf<String?>(null) }
     var controlsVisible by remember { mutableStateOf(true) }
+    var showSound by remember { mutableStateOf(false) }
+    val sound by app.preferences.sound.collectAsState()
     // Decoders that failed on this video. Some devices' hardware decoders give up mid-file (and the
     // emulator's do on plain H.264), so playback carries on from the same spot with the next one.
     var failedDecoders by remember(key) { mutableStateOf(emptySet<String>()) }
@@ -79,8 +87,9 @@ fun PlayerScreen(key: String, start: Double?, navigator: Navigator) {
         val selector = MediaCodecSelector { mimeType, secure, tunneling ->
             MediaCodecUtil.getDecoderInfos(mimeType, secure, tunneling).filter { it.name !in failedDecoders }
         }
-        ExoPlayer.Builder(context, DefaultRenderersFactory(context).setEnableDecoderFallback(true)
+        ExoPlayer.Builder(context, SoundRenderersFactory(context) { app.preferences.sound.value }.setEnableDecoderFallback(true)
             .setMediaCodecSelector(selector)
+            // FFmpeg decodes the surround formats (AC-3, E-AC-3, DTS, TrueHD) the device can't.
             .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON))
             .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build(), true)
             .setHandleAudioBecomingNoisy(true)
@@ -174,13 +183,28 @@ fun PlayerScreen(key: String, start: Double?, navigator: Navigator) {
             update = { it.player = player },
             modifier = Modifier.fillMaxSize(),
         )
-        if (controlsVisible) {
-            Column(
+        if (controlsVisible || showSound) {
+            Row(
                 Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.7f), Color.Transparent)))
                     .padding(horizontal = 32.dp, vertical = 24.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(item.displayTitle, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, color = Color.White)
-                item.episodeTitle?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = Palette.muted) }
+                Column(Modifier.weight(1f)) {
+                    Text(item.displayTitle, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, color = Color.White)
+                    item.episodeTitle?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = Palette.muted) }
+                }
+                ActionButton("Sound", Icons.Default.GraphicEq, { showSound = !showSound }, primary = sound.isActive())
+            }
+        }
+        if (showSound) {
+            BackHandler { showSound = false }
+            Column(
+                Modifier.align(Alignment.TopEnd).padding(top = 88.dp, end = 24.dp).widthIn(max = 380.dp)
+                    .background(Color(0xF0202024), MaterialTheme.shapes.large).padding(vertical = 12.dp),
+            ) {
+                Text("Sound", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = Color.White,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+                SoundControls()
             }
         }
         error?.let {

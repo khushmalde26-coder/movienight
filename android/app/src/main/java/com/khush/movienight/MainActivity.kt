@@ -7,6 +7,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import com.khush.movienight.ui.FormFactor
 import com.khush.movienight.ui.MovieNightRoot
+import com.khush.movienight.ui.debugPlay
 import com.khush.movienight.ui.formFactorOverride
 import com.khush.movienight.ui.MovieNightTheme
 
@@ -18,6 +19,8 @@ class MainActivity : ComponentActivity() {
             val debug = getSharedPreferences("debug", MODE_PRIVATE)
             intent.getStringExtra("formFactor")?.let { debug.edit().putString("formFactor", it).commit() }
             formFactorOverride = FormFactor.entries.firstOrNull { it.name.equals(debug.getString("formFactor", null), true) }
+            // "--es play <part of a file name>" opens the player on that video, for checking playback.
+            debugPlay = intent.getStringExtra("play")
         }
         enableEdgeToEdge(statusBarStyle = SystemBarStyle.dark(0), navigationBarStyle = SystemBarStyle.dark(0))
         setContent {

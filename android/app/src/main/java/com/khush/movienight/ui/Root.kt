@@ -100,6 +100,10 @@ fun MovieNightRoot() {
             else -> true
         }
     }
+    androidx.compose.runtime.LaunchedEffect(items) {
+        val wanted = debugPlay ?: return@LaunchedEffect
+        items?.firstOrNull { it.fileName.contains(wanted, ignoreCase = true) }?.let { debugPlay = null; showIntro = false; navigator.play(it, 0.0) }
+    }
     val current = Tab.entries.firstOrNull { it.route == route }
     val showChrome = route?.startsWith("player") != true
     val select: (Tab) -> Unit = { tab ->

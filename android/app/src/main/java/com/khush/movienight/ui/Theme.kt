@@ -23,6 +23,9 @@ val LocalFormFactor = staticCompositionLocalOf { FormFactor.PHONE }
 /** Debug builds only: set from MainActivity to try another layout on any device. */
 var formFactorOverride: FormFactor? = null
 
+/** Debug builds only: part of a file name to start playing at launch. */
+var debugPlay: String? = null
+
 object Palette {
     val ink = Color(0xFF0B0B0F)
     val surface = Color(0xFF1C1C1E)

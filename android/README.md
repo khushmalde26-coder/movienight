@@ -30,7 +30,12 @@ app's `MovieNight/Resources` (task `sharedArt`), so both apps always use the sam
   - "This Device's Videos" reads the system's media index, for TVs and boxes that have no folder picker
     (internal storage and USB drives).
 - `playback/`: ExoPlayer with resume, progress saving, next episode, and a fallback to another decoder
-  when a hardware decoder fails mid-file.
+  when a hardware decoder fails mid-file. Sound (Boost Dialogue, Night Mode, Balance) runs in the
+  audio path with the Apple app's filters (`core/Sound.kt`), changeable while playing.
+  - Jellyfin's build of Media3's FFmpeg decoder (`org.jellyfin.media3:media3-ffmpeg-decoder`) decodes
+    AC-3, E-AC-3, DTS and TrueHD when the device can't, which many TVs and projectors can't.
+    It is GPL-3.0: fine for personal use; replace it with an LGPL build of the extension before
+    distributing the app closed-source.
 - `ui/`: one set of screens laid out three ways: bottom tabs on phones, a side rail on tablets, and
   tabs over the banner on TV with D-pad focus (OK on the remote plays; only Up leaves a page for the tabs).
 
@@ -41,5 +46,5 @@ Debug builds can try another layout on any device:
 ## Not yet
 
 VLC-based fallback for formats ExoPlayer can't open (AVI, WMV, RealMedia), network shares (SMB),
-TitleChek, picture in picture, subtitle and audio options beyond the player's own menu, saved moments,
+TitleChek, picture in picture, subtitle options beyond the player's own menu, saved moments,
 collections, wallpapers and accent colours.
