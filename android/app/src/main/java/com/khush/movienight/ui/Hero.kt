@@ -51,7 +51,8 @@ fun MetadataLine(item: MediaItem) {
     }
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(listOfNotNull(whenText, length).joinToString("  ·  "), style = MaterialTheme.typography.bodyMedium, color = Palette.muted)
-        Formatters.badge(item.width, item.height)?.let { Chip(it) }
+        Formatters.badge(item.width, item.height)?.let { QualityChip(it) }
+        SpatialAudioChip(item)
     }
 }
 

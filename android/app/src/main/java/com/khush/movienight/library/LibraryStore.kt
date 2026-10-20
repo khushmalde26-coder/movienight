@@ -185,7 +185,7 @@ class LibraryStore(private val context: Context, private val dao: LibraryDao) {
             val current = dao.item(item.key) ?: continue
             batch += current.copy(
                 duration = metadata.duration, width = metadata.width, height = metadata.height, frameRate = metadata.frameRate,
-                recordedAt = metadata.recordedAt, isPlayable = metadata.isPlayable,
+                recordedAt = metadata.recordedAt, isPlayable = metadata.isPlayable, spatialAudio = metadata.spatialAudio,
                 thumbnailFile = metadata.thumbnailFile ?: current.thumbnailFile, metadataVersion = MetadataReader.VERSION,
             )
             if (batch.size == 10) { dao.upsert(batch); batch.clear() }

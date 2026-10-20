@@ -13,12 +13,14 @@ struct VideoMetadata: Sendable {
     var videoCodec: String?
     var isHDR = false
     var audioChannels: Int?
+    /// Dolby Atmos or DTS:X in the main soundtrack.
+    var spatialAudio: SpatialAudio?
     var chapters: [Chapter] = []
 }
 
 enum MetadataReader {
     /// Bump when this reader learns to extract something new, so existing items get re-read.
-    static let version = 3
+    static let version = 4
 
     static func read(_ url: URL) async -> VideoMetadata {
         let asset = AVURLAsset(url: url)
@@ -47,6 +49,11 @@ enum MetadataReader {
                let format = try await audio.load(.formatDescriptions).first,
                let description = CMAudioFormatDescriptionGetStreamBasicDescription(format) {
                 result.audioChannels = Int(description.pointee.mChannelsPerFrame)
+                if CMFormatDescriptionGetMediaSubType(format) == kAudioFormatEnhancedAC3,
+                   let atoms = CMFormatDescriptionGetExtension(format, extensionKey: kCMFormatDescriptionExtension_SampleDescriptionExtensionAtoms) as? [String: Any],
+                   let dec3 = atoms["dec3"] as? Data, SpatialAudio.isJointObjectCoding(dec3: dec3) {
+                    result.spatialAudio = .atmos
+                }
             }
             result.chapters = await chapters(of: asset)
             return result

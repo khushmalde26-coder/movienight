@@ -200,6 +200,7 @@ struct MetadataLine: View {
                 .font(.subheadline)
                 .foregroundStyle(.mutedText)
             ForEach(item.quality?.badges ?? [], id: \.self) { QualityChip(text: $0) }
+            if let spatial = item.spatialAudio { QualityChip(text: spatial.badge, systemImage: SpatialAudio.symbol) }
         }
     }
 }
@@ -208,10 +209,15 @@ struct MetadataLine: View {
 struct QualityChip: View {
     let text: String
     var compact = false
+    /// A small symbol before the text, as on the Atmos chip.
+    var systemImage: String?
     @ScaledMetric(relativeTo: .caption2) private var compactSize: CGFloat = 9
 
     var body: some View {
-        Text(text)
+        HStack(spacing: compact ? 2 : 3) {
+            if let systemImage { Image(systemName: systemImage) }
+            Text(text)
+        }
             .font(compact ? .system(size: compactSize, weight: .bold) : .caption2.weight(.bold))
             .padding(.horizontal, compact ? 4 : 6)
             .padding(.vertical, compact ? 1 : 2)
@@ -227,6 +233,7 @@ struct QualityChip: View {
         case "4K": "4K"
         case "SD": "Standard definition"
         case "HD": "High definition"
+        case SpatialAudio.atmos.badge: SpatialAudio.atmos.spoken
         default:
             badge.hasSuffix("fps") ? "\(badge.dropLast(3)) frames per second" : badge
         }

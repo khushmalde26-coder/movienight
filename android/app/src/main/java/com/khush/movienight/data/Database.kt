@@ -1,6 +1,7 @@
 package com.khush.movienight.data
 
 import android.content.Context
+import androidx.room.AutoMigration
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Delete
@@ -63,7 +64,12 @@ interface LibraryDao {
     }
 }
 
-@Database(entities = [LibrarySource::class, MediaItem::class, WatchRecord::class], version = 1)
+@Database(
+    entities = [LibrarySource::class, MediaItem::class, WatchRecord::class],
+    version = 2,
+    // 2: items.spatialAudio (Dolby Atmos / DTS:X).
+    autoMigrations = [AutoMigration(from = 1, to = 2)],
+)
 abstract class LibraryDatabase : RoomDatabase() {
     abstract fun dao(): LibraryDao
 

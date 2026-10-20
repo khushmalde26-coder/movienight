@@ -19,12 +19,15 @@ data class VideoMetadata(
     val recordedAt: Long?,
     val isPlayable: Boolean?,
     val thumbnailFile: String?,
+    /** Dolby Atmos or DTS:X, when the soundtrack says so. */
+    val spatialAudio: String? = null,
 )
 
 /** Length, size, shooting date and a frame for artwork, read with the system's own media reader. */
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 object MetadataReader {
     /** Bump to re-read every file on the next scan. */
-    const val VERSION = 1
+    const val VERSION = 2
 
     fun thumbnailDirectory(context: Context): File = File(context.cacheDir, "thumbnails").apply { mkdirs() }
 
@@ -45,10 +48,11 @@ object MetadataReader {
             val frameRate = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_CAPTURE_FRAMERATE)?.toDoubleOrNull()
             val recordedAt = parseDate(retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DATE))
             val thumbnail = if (makeThumbnail && hasVideo) frame(context, retriever, key, durationMs) else null
-            VideoMetadata(durationMs?.div(1000.0), width, height, frameRate, recordedAt, if (hasVideo) true else null, thumbnail)
+            VideoMetadata(durationMs?.div(1000.0), width, height, frameRate, recordedAt, if (hasVideo) true else null, thumbnail,
+                spatialAudio = AudioProbe.spatialAudio(context, uri)?.name)
         } catch (_: Exception) {
             // Formats the system reader doesn't know (some MKV, AVI, WMV) may still play in ExoPlayer.
-            VideoMetadata(null, null, null, null, null, null, null)
+            VideoMetadata(null, null, null, null, null, null, null, spatialAudio = AudioProbe.spatialAudio(context, uri)?.name)
         } finally {
             runCatching { retriever.release() }
         }

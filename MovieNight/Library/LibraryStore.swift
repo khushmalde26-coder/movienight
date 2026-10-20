@@ -241,6 +241,7 @@ final class LibraryStore {
         item.videoCodec = metadata.videoCodec
         item.isHDR = metadata.isHDR
         item.audioChannels = metadata.audioChannels
+        item.spatialAudioRaw = metadata.spatialAudio?.rawValue
         item.chapters = metadata.chapters
         item.metadataVersion = MetadataReader.version
         if let thumbnail { item.thumbnailFile = thumbnail }

@@ -135,6 +135,14 @@ enum MPVProbe {
         if let channels = mpv.int("audio-params/channel-count"), channels > 0 {
             metadata.audioChannels = channels
         }
+        // The soundtrack mpv picked (the file's default), else any track that has it.
+        metadata.spatialAudio = SpatialAudio.fromProfile(mpv.string("current-tracks/audio/codec-profile"))
+        if metadata.spatialAudio == nil, let count = mpv.int("track-list/count") {
+            metadata.spatialAudio = (0..<count).lazy
+                .filter { mpv.string("track-list/\($0)/type") == "audio" }
+                .compactMap { SpatialAudio.fromProfile(mpv.string("track-list/\($0)/codec-profile")) }
+                .first
+        }
         if let count = mpv.int("chapter-list/count"), count > 0 {
             metadata.chapters = (0..<count).compactMap { index in
                 guard let start = mpv.double("chapter-list/\(index)/time") else { return nil }

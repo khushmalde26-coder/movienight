@@ -29,6 +29,8 @@ final class MediaItem {
     var videoCodec: String?
     var isHDR: Bool = false
     var audioChannels: Int?
+    /// SpatialAudio raw value read from the soundtrack; nil for none (or not yet read).
+    var spatialAudioRaw: String?
     /// JSON-encoded [Chapter]; nil when the file has none.
     var chaptersData: Data?
     /// false for an iCloud file that isn't downloaded. Updated on every scan.
@@ -106,6 +108,11 @@ final class MediaItem {
 
     /// For a show's card and banner: the show's TMDB backdrop, else this file's frame.
     var showArtworkFile: String? { info?.backdropFile ?? thumbnailFile }
+
+    /// Dolby Atmos or DTS:X, from the soundtrack or, failing that, the file name.
+    var spatialAudio: SpatialAudio? {
+        spatialAudioRaw.flatMap(SpatialAudio.init(rawValue:)) ?? SpatialAudio.fromFileName(fileName)
+    }
 
     var engine: PlaybackEngine? {
         get { engineRaw.flatMap(PlaybackEngine.init(rawValue:)) }

@@ -33,6 +33,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.Movie
+import androidx.compose.material.icons.outlined.SurroundSound
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -146,6 +147,27 @@ fun Chip(text: String, modifier: Modifier = Modifier) {
     )
 }
 
+/** Outlined label beside a title, like "4K" or the Atmos chip with its little surround symbol. */
+@Composable
+fun QualityChip(text: String, icon: androidx.compose.ui.graphics.vector.ImageVector? = null) {
+    Row(
+        Modifier.border(1.dp, Palette.muted.copy(alpha = 0.6f), RoundedCornerShape(3.dp)).padding(horizontal = 4.dp, vertical = 1.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (icon != null) {
+            Icon(icon, null, tint = Palette.muted, modifier = Modifier.size(11.dp))
+            Spacer(Modifier.width(2.dp))
+        }
+        Text(text, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = Palette.muted)
+    }
+}
+
+/** The chip for Dolby Atmos or DTS:X, when the video has it. */
+@Composable
+fun SpatialAudioChip(item: MediaItem) {
+    item.spatial?.let { QualityChip(it.badge, Icons.Outlined.SurroundSound) }
+}
+
 /** The line under a card's title: when or where, since the length is stamped on the artwork. */
 fun subtitle(item: MediaItem): String? = when (item.contentKind) {
     ContentKind.EPISODE -> item.episodeLabel
@@ -163,7 +185,7 @@ fun PosterCard(item: MediaItem, onOpen: (MediaItem) -> Unit, modifier: Modifier 
     val offline by app.store.offline.collectAsState()
     var menu by remember { mutableStateOf(false) }
     val available = item.sourceId !in offline
-    val label = listOfNotNull(item.displayTitle, subtitle(item), Formatters.duration(item.duration),
+    val label = listOfNotNull(item.displayTitle, subtitle(item), Formatters.duration(item.duration), item.spatial?.spoken,
         if (item.isFinished) "watched" else null, if (!available) "offline" else null).joinToString(", ")
     val interaction = rememberCardInteraction()
     Column(modifier.width(width).cardClick(interaction, onLongClick = { menu = true }) { onOpen(item) }
@@ -183,8 +205,12 @@ fun PosterCard(item: MediaItem, onOpen: (MediaItem) -> Unit, modifier: Modifier 
         }
         Spacer(Modifier.height(8.dp))
         Text(item.displayTitle, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        subtitle(item)?.let {
-            Text(it, style = MaterialTheme.typography.bodySmall, color = Palette.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            subtitle(item)?.let {
+                Text(it, style = MaterialTheme.typography.bodySmall, color = Palette.muted, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false))
+            }
+            SpatialAudioChip(item)
         }
     }
 }

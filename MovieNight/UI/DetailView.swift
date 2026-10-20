@@ -101,6 +101,12 @@ extension DetailView {
         }
     }
 
+    /// "5.1, Dolby Atmos"; nil when nothing is known.
+    private func audioDescription(_ item: MediaItem) -> String? {
+        let parts = [VideoQuality.audioLabel(channels: item.audioChannels), item.spatialAudio?.spoken].compactMap { $0 }
+        return parts.isEmpty ? nil : parts.joined(separator: ", ")
+    }
+
     private func technicalGrid(_ item: MediaItem) -> some View {
         let quality = item.quality
         let resolution = quality.map { "\($0.width) × \($0.height) (\($0.resolutionName))" }
@@ -116,7 +122,7 @@ extension DetailView {
             InfoRow(label: "Resolution", value: resolution)
             InfoRow(label: "Frame rate", value: frameRate)
             InfoRow(label: "Video", value: video.isEmpty ? nil : video)
-            InfoRow(label: "Audio", value: VideoQuality.audioLabel(channels: item.audioChannels))
+            InfoRow(label: "Audio", value: audioDescription(item))
             InfoRow(label: "Bitrate", value: VideoQuality.bitrateLabel(fileSize: item.fileSize, duration: item.duration))
             InfoRow(label: "Size", value: Formatters.size(item.fileSize))
             InfoRow(label: "Player", value: player)

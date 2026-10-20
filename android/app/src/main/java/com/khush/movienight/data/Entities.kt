@@ -9,6 +9,7 @@ import com.khush.movienight.core.ContentKind
 import com.khush.movienight.core.DisplayTitle
 import com.khush.movienight.core.FolderContent
 import com.khush.movienight.core.ShelfInput
+import com.khush.movienight.core.SpatialAudio
 import com.khush.movienight.core.yearInstant
 import java.time.Instant
 
@@ -64,6 +65,8 @@ data class MediaItem(
     val width: Int? = null,
     val height: Int? = null,
     val frameRate: Double? = null,
+    /** SpatialAudio name read from the soundtrack; null for none or not yet read. */
+    val spatialAudio: String? = null,
     /** MetadataReader.VERSION that last read this file; lower means re-read on next scan. */
     val metadataVersion: Int = 0,
 
@@ -103,6 +106,10 @@ data class MediaItem(
         get() = duration?.takeIf { progressSeconds > 0 && !isFinished }?.let { (it - progressSeconds).coerceAtLeast(0.0) }
 
     val isVertical: Boolean get() = width != null && height != null && height > width
+
+    /** Dolby Atmos or DTS:X, from the soundtrack or, failing that, the file name. */
+    val spatial: SpatialAudio?
+        get() = spatialAudio?.let { name -> SpatialAudio.entries.firstOrNull { it.name == name } } ?: SpatialAudio.fromFileName(fileName)
 
     val isUHD: Boolean get() = (width ?: 0) >= 3200 || (height ?: 0) >= 2000
 

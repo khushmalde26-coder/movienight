@@ -145,6 +145,9 @@ struct PosterCard: View {
                 ForEach((item.quality?.badges ?? []).filter { $0 != "HD" && $0 != "Vertical" }, id: \.self) {
                     QualityChip(text: $0, compact: true)
                 }
+                if let spatial = item.spatialAudio {
+                    QualityChip(text: spatial.badge, compact: true, systemImage: SpatialAudio.symbol)
+                }
             }
         }
         .frame(width: Theme.cardWidth, alignment: .leading)
@@ -194,6 +197,7 @@ extension PosterCard {
             parts.append("\(Int((item.progressFraction * 100).rounded())) percent watched")
         }
         parts += (item.quality?.badges ?? []).filter { $0 != "HD" }.map(QualityChip.spoken)
+        if let spatial = item.spatialAudio { parts.append(spatial.spoken) }
         if !available { parts.append("Offline") } else if item.isPlayable == false { parts.append("Can't be opened") }
         return parts.joined(separator: ", ")
     }

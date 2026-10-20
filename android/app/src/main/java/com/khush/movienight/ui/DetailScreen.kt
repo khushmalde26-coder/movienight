@@ -43,6 +43,7 @@ fun DetailScreen(key: String, navigator: Navigator) {
                     InfoRow("Length", Formatters.duration(item.duration))
                     if (item.contentKind == ContentKind.HOME_VIDEO) InfoRow("Recorded", Formatters.date(item.bestDate))
                     InfoRow("Resolution", Formatters.resolution(item.width, item.height))
+                    InfoRow("Sound", item.spatial?.spoken)
                     InfoRow("Frame rate", item.frameRate?.let { "%.0f fps".format(it) })
                     InfoRow("Folder", item.collection.ifEmpty { null })
                     InfoRow("Library", sources.firstOrNull { it.id == item.sourceId }?.name)
