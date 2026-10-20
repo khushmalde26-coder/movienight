@@ -13,15 +13,17 @@ enum MPVProbe {
     }
 
     /// Blocking work runs on a GCD queue so it doesn't tie up a Swift concurrency thread.
-    static func probe(_ url: URL, frameDirectory: URL) async -> Result {
+    /// Without `grabFrame` (the file already has artwork) it skips the seek to 10% and the frame,
+    /// which is most of the time on large 4K files.
+    static func probe(_ url: URL, frameDirectory: URL, grabFrame: Bool = true) async -> Result {
         await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .utility).async {
-                continuation.resume(returning: probeSync(url, frameDirectory: frameDirectory))
+                continuation.resume(returning: probeSync(url, frameDirectory: frameDirectory, grabFrame: grabFrame))
             }
         }
     }
 
-    private static func probeSync(_ url: URL, frameDirectory: URL) -> Result {
+    private static func probeSync(_ url: URL, frameDirectory: URL, grabFrame: Bool) -> Result {
         var metadata = VideoMetadata(isPlayable: false)
         guard let mpv = MPVHandle() else { return Result(metadata: metadata) }
         defer { mpv.destroy() }
@@ -32,7 +34,7 @@ enum MPVProbe {
         let options = [
             ("config", "no"), ("load-scripts", "no"), ("terminal", "no"), ("ytdl", "no"),
             ("ao", "null"), ("vo", "null"), ("hwdec", "no"),
-            ("pause", "yes"), ("start", "10%"),
+            ("pause", "yes"), ("start", grabFrame ? "10%" : "0"),
         ]
         for (name, value) in options { mpv.setOption(name, value) }
         guard mpv.initialize() else { return Result(metadata: metadata) }
@@ -53,7 +55,7 @@ enum MPVProbe {
                 // Paused on the first frame at the start position: everything is known now.
                 guard loaded else { continue }
                 read(mpv, into: &metadata)
-                frame = writeFrame(mpv, to: frameDirectory.appending(path: "frame.jpg"))
+                if grabFrame { frame = writeFrame(mpv, to: frameDirectory.appending(path: "frame.jpg")) }
                 break events
             case MPV_EVENT_END_FILE, MPV_EVENT_SHUTDOWN:
                 break events

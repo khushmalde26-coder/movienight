@@ -221,7 +221,7 @@ final class LibraryStore {
             }
         } else {
             let frameDirectory = URL.temporaryDirectory.appending(path: "Probe-\(UUID().uuidString)")
-            let probe = await MPVProbe.probe(url, frameDirectory: frameDirectory)
+            let probe = await MPVProbe.probe(url, frameDirectory: frameDirectory, grabFrame: item.thumbnailFile == nil)
             metadata = probe.metadata
             item.engine = metadata.isPlayable ? .mpv : nil
             if item.thumbnailFile == nil, let frame = probe.frameFile {
